@@ -38,7 +38,6 @@ public class buildMesh : MonoBehaviour {
         
         for (int cubeI = 0; cubeI < cubeCount; cubeI++) {
             float layerOffset = cubeI * cubeSeparation;
-            // Not sure why we have to do the x inversion, but we do for everything to come out right!
             float[] cubeXMinMax = { 1 - xMinMax[0] - layerOffset / layerHeight, 1 - xMinMax[1] + layerOffset / layerHeight };
             float[] cubeYMinMax = { yMinMax[0] + layerOffset / layerNumber, yMinMax[1] - layerOffset / layerNumber };
             float[] cubeZMinMax = { zMinMax[0] + layerOffset / layerWidth, zMinMax[1] - layerOffset / layerWidth };
@@ -85,14 +84,14 @@ public class buildMesh : MonoBehaviour {
                     int vert3 = baseI + dim1I + dim2I;
 
                     // (-, -), (+, -), (+, +)
-                    triangles[0] = j == 0 ? vert3 : vert0;
+                    triangles[0] = j == 0 ? vert0 : vert3;
                     triangles[1] = vert1;
-                    triangles[2] = j == 0 ? vert0 : vert3;
+                    triangles[2] = j == 0 ? vert3 : vert0;
 
                     // (+, +), (-, +), (-, -)
-                    triangles[3] = j == 0 ? vert0 : vert3;
+                    triangles[3] = j == 0 ? vert3 : vert0;
                     triangles[4] = vert2;
-                    triangles[5] = j == 0 ? vert3 : vert0;
+                    triangles[5] = j == 0 ? vert0 : vert3;
 
                     mesh.SetTriangles(triangles, meshI);
                     meshI++;
@@ -164,14 +163,16 @@ public class buildMesh : MonoBehaviour {
             meshRend.materials[i] = new Material(baseMaterial);
             meshRend.materials[i].shader = baseMaterial.shader;
             meshRend.materials[i].mainTexture = planeTextures[i];
+            meshRend.materials[i].SetOverrideTag("Queue", "Transparent+" + i);
         }
     }
 
     void setTextures(MeshRenderer rend) {
         for (int cubeI = 0; cubeI < cubeCount; cubeI++) {
-            float[] cubeXMinMax = { xLayersMinMax[0] + (float)cubeI / layerHeight, xLayersMinMax[1] - (float)cubeI / layerHeight };
-            float[] cubeYMinMax = { yLayersMinMax[0] + (float)cubeI / layerNumber, yLayersMinMax[1] - (float)cubeI / layerNumber };
-            float[] cubeZMinMax = { zLayersMinMax[0] + (float)cubeI / layerWidth, zLayersMinMax[1] - (float)cubeI / layerWidth };
+            float layerOffset = cubeI * cubeSeparation;
+            float[] cubeXMinMax = { xLayersMinMax[0] + layerOffset / layerHeight, xLayersMinMax[1] - layerOffset / layerHeight };
+            float[] cubeYMinMax = { yLayersMinMax[0] + layerOffset / layerNumber, yLayersMinMax[1] - layerOffset / layerNumber };
+            float[] cubeZMinMax = { zLayersMinMax[0] + layerOffset / layerWidth, zLayersMinMax[1] - layerOffset / layerWidth };
             // The planes are: -x, +x, -y, +y, -z, +z
             setPlaneTexture(planeTextures[6 * cubeI + 0], new Plane(new Vector3(1, 0, 0), cubeXMinMax[0]));
             setPlaneTexture(planeTextures[6 * cubeI + 1], new Plane(new Vector3(1, 0, 0), cubeXMinMax[1]));
@@ -179,6 +180,13 @@ public class buildMesh : MonoBehaviour {
             setPlaneTexture(planeTextures[6 * cubeI + 3], new Plane(new Vector3(0, 1, 0), cubeYMinMax[1])); // top
             setPlaneTexture(planeTextures[6 * cubeI + 4], new Plane(new Vector3(0, 0, 1), cubeZMinMax[0]));
             setPlaneTexture(planeTextures[6 * cubeI + 5], new Plane(new Vector3(0, 0, 1), cubeZMinMax[1]));
+        }
+        for (int cubeI = 0; cubeI < cubeCount; cubeI++) {
+            for (int i = 0; i < 6; i++) {
+                //rend.materials[i].SetOverrideTag("Queue", "Transparent+" + (cubeCount - cubeI));
+                rend.materials[cubeI * 6 + i].renderQueue = 3000 + (cubeCount - cubeI);
+                //rend.materials[i].renderQueue = -;
+            }
         }
     }
 
