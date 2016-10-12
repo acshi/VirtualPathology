@@ -25,6 +25,9 @@ public class buildMesh : MonoBehaviour {
     float[] xLayersMinMax = new float[] { 0, 1 };
     float[] yLayersMinMax = new float[] { 0, 1 };
     float[] zLayersMinMax = new float[] { 0, 1 };
+    float[] xBuiltMinMax = new float[2] { -1, -1 };
+    float[] yBuiltMinMax = new float[2] { -1, -1 };
+    float[] zBuiltMinMax = new float[2] { -1, -1 };
     //Vector3 positiveAxisZoom; // increase to view inner layers on the + side
     //Vector3 negativeAxisZoom; // for - side.
 
@@ -174,12 +177,24 @@ public class buildMesh : MonoBehaviour {
             float[] cubeYMinMax = { yLayersMinMax[0] + layerOffset / layerNumber, yLayersMinMax[1] - layerOffset / layerNumber };
             float[] cubeZMinMax = { zLayersMinMax[0] + layerOffset / layerWidth, zLayersMinMax[1] - layerOffset / layerWidth };
             // The planes are: -x, +x, -y, +y, -z, +z
-            setPlaneTexture(planeTextures[6 * cubeI + 0], new Plane(new Vector3(1, 0, 0), cubeXMinMax[0]));
-            setPlaneTexture(planeTextures[6 * cubeI + 1], new Plane(new Vector3(1, 0, 0), cubeXMinMax[1]));
-            setPlaneTexture(planeTextures[6 * cubeI + 2], new Plane(new Vector3(0, 1, 0), cubeYMinMax[0])); // bottom
-            setPlaneTexture(planeTextures[6 * cubeI + 3], new Plane(new Vector3(0, 1, 0), cubeYMinMax[1])); // top
-            setPlaneTexture(planeTextures[6 * cubeI + 4], new Plane(new Vector3(0, 0, 1), cubeZMinMax[0]));
-            setPlaneTexture(planeTextures[6 * cubeI + 5], new Plane(new Vector3(0, 0, 1), cubeZMinMax[1]));
+            if (xLayersMinMax[0] != xBuiltMinMax[0]) {
+                setPlaneTexture(planeTextures[6 * cubeI + 0], new Plane(new Vector3(1, 0, 0), cubeXMinMax[0]));
+            }
+            if (xLayersMinMax[1] != xBuiltMinMax[1]) {
+                setPlaneTexture(planeTextures[6 * cubeI + 1], new Plane(new Vector3(1, 0, 0), cubeXMinMax[1]));
+            }
+            if (yLayersMinMax[0] != yBuiltMinMax[0]) {
+                setPlaneTexture(planeTextures[6 * cubeI + 2], new Plane(new Vector3(0, 1, 0), cubeYMinMax[0])); // bottom
+            }
+            if (yLayersMinMax[1] != yBuiltMinMax[1]) {
+                setPlaneTexture(planeTextures[6 * cubeI + 3], new Plane(new Vector3(0, 1, 0), cubeYMinMax[1])); // top
+            }
+            if (zLayersMinMax[0] != zBuiltMinMax[0]) {
+                setPlaneTexture(planeTextures[6 * cubeI + 4], new Plane(new Vector3(0, 0, 1), cubeZMinMax[0]));
+            }
+            if (zLayersMinMax[1] != zBuiltMinMax[1]) {
+                setPlaneTexture(planeTextures[6 * cubeI + 5], new Plane(new Vector3(0, 0, 1), cubeZMinMax[1]));
+            }
         }
         for (int cubeI = 0; cubeI < cubeCount; cubeI++) {
             for (int i = 0; i < 6; i++) {
@@ -188,6 +203,12 @@ public class buildMesh : MonoBehaviour {
                 //rend.materials[i].renderQueue = -;
             }
         }
+        xBuiltMinMax[0] = xLayersMinMax[0];
+        xBuiltMinMax[1] = xLayersMinMax[1];
+        yBuiltMinMax[0] = yLayersMinMax[0];
+        yBuiltMinMax[1] = yLayersMinMax[1];
+        zBuiltMinMax[0] = zLayersMinMax[0];
+        zBuiltMinMax[1] = zLayersMinMax[1];
     }
 
     // Use this for initialization
