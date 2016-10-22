@@ -1,10 +1,13 @@
 using UnityEngine;
 using System.IO;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 public class buildMesh : MonoBehaviour {
     public string ImageLayerDirectory = "human_kidney_png";
 
+    public float yAspectRatio = 2.8f;
     public int cubeCount = 4; // number of cube layers. 1 would be to have just the outermost layer
     public int cubeSeparation = 3; // number of layers between cube layers
     const float rotationSensitivity = 0.3f;
@@ -13,11 +16,14 @@ public class buildMesh : MonoBehaviour {
     MeshRenderer meshRend;
     MeshCollider meshCollider;
     Texture2D[] layers;
-    Texture2D[] planeTextures;
+    //Texture2D[] planeTextures;
     float scaleFactor;
     int layerWidth;
     int layerHeight;
     int layerNumber;
+
+    List<Texture2D> cachedTextures = new List<Texture2D>();
+    List<Plane> cachedTexturePlanes = new List<Plane>();
     
     bool isRotating = false;
     Vector3 dragStartPosition;
@@ -41,9 +47,9 @@ public class buildMesh : MonoBehaviour {
         
         for (int cubeI = 0; cubeI < cubeCount; cubeI++) {
             float layerOffset = cubeI * cubeSeparation;
-            float[] cubeXMinMax = { 1 - xMinMax[0] - layerOffset / layerHeight, 1 - xMinMax[1] + layerOffset / layerHeight };
-            float[] cubeYMinMax = { yMinMax[0] + layerOffset / layerNumber, yMinMax[1] - layerOffset / layerNumber };
-            float[] cubeZMinMax = { zMinMax[0] + layerOffset / layerWidth, zMinMax[1] - layerOffset / layerWidth };
+            float[] cubeXMinMax = { 1 - xMinMax[0] - layerOffset / (layerHeight - 1), 1 - xMinMax[1] + layerOffset / (layerHeight - 1) };
+            float[] cubeYMinMax = { yMinMax[0] + layerOffset / (layerNumber - 1), yMinMax[1] - layerOffset / (layerNumber - 1) };
+            float[] cubeZMinMax = { zMinMax[0] + layerOffset / (layerWidth - 1), zMinMax[1] - layerOffset / (layerWidth - 1) };
 
             int vertI = 24 * cubeI;
             // three sets of identical vertices, starting at 0 (x planes), 8 (y planes), 16 (z planes).
@@ -53,7 +59,7 @@ public class buildMesh : MonoBehaviour {
             for (int z = 0; z <= 1; z++) {
                 for (int y = 0; y <= 1; y++) {
                     for (int x = 0; x <= 1; x++) {
-                        vertices[vertI] = new Vector3(xl * (cubeXMinMax[x] - 0.5f), yl * (cubeYMinMax[y] - 0.5f), zl * (cubeZMinMax[z] - 0.5f));
+                        vertices[vertI] = new Vector3(xl * (cubeXMinMax[x] - 0.5f), yl * (cubeYMinMax[y] - 0.5f) * yAspectRatio, zl * (cubeZMinMax[z] - 0.5f));
                         vertices[vertI + 8] = vertices[vertI];
                         vertices[vertI + 16] = vertices[vertI];
 
@@ -104,31 +110,104 @@ public class buildMesh : MonoBehaviour {
     }
 
     void loadLayerFiles() {
+        // The files in the designated folder have the source y-layers
         string path = Path.Combine(Application.streamingAssetsPath, ImageLayerDirectory);
         string[] files = Directory.GetFiles(path, "*.png");
         layers = new Texture2D[files.Length];
 
-        //int transparency = (int)(transparencyCoef * 255);
-
         for (int i = 0; i < files.Length; i++) {
             Texture2D tex = new Texture2D(1, 1);
             tex.LoadImage(File.ReadAllBytes(files[i]));
-            /*Color32[] pixels = tex.GetPixels32();
-            // Add alpha to pixels
-            for (int j = 0; j < pixels.Length; j++) {
-                pixels[j].a = (byte)(Math.Min(255, (255 - transparency) + transparency * (pixels[j].r * 299 + pixels[j].g * 587 + pixels[j].b * 114) / 1000 / 255));
-            }
-            tex.SetPixels32(pixels);*/
             layers[i] = tex;
+
+            cachedTextures.Add(tex);
+            cachedTexturePlanes.Add(new Plane(new Vector3(0, 1, 0), 1f - (float)i / (files.Length - 1)));
         }
 
         layerWidth = layers[0].width;
         layerHeight = layers[0].height;
         layerNumber = layers.Length;
+
+        // But do we have cached x and z layers to load as well?
+        string[] folders = Directory.GetDirectories(path);
+        string xLayerFolder = folders.Where(a => a.EndsWith("xlayers")).FirstOrDefault();
+        if (xLayerFolder != null) {
+            string[] xLayerFiles = Directory.GetFiles(path, "*.png");
+            for (int i = 0; i < xLayerFiles.Length; i++) {
+                Texture2D tex = new Texture2D(1, 1);
+                tex.LoadImage(File.ReadAllBytes(xLayerFiles[i]));
+
+                cachedTextures.Add(tex);
+                cachedTexturePlanes.Add(new Plane(new Vector3(1, 0, 0), 1f - (float)i / (layerHeight - 1)));
+            }
+        } else {
+            Directory.CreateDirectory(Path.Combine(path, "xlayers"));
+            // Create and save the layers
+            for (int i = 0; i < layerHeight; i++) {
+                // Creating the texture here also caches it
+                Texture2D tex = textureForPlane(new Plane(new Vector3(1, 0, 0), 1f - (float)i / (layerHeight - 1)));
+                File.WriteAllBytes(Path.Combine(path, string.Format("xlayers/{0:0000}.png", i)), tex.EncodeToPNG());
+            }
+        }
+
+        string zLayerFolder = folders.Where(a => a.EndsWith("zlayers")).FirstOrDefault();
+        if (zLayerFolder != null) {
+            string[] zLayerFiles = Directory.GetFiles(path, "*.png");
+            for (int i = 0; i < zLayerFiles.Length; i++) {
+                Texture2D tex = new Texture2D(1, 1);
+                tex.LoadImage(File.ReadAllBytes(zLayerFiles[i]));
+
+                cachedTextures.Add(tex);
+                cachedTexturePlanes.Add(new Plane(new Vector3(0, 0, 1), (float)i / (layerWidth - 1)));
+            }
+        } else {
+            Directory.CreateDirectory(Path.Combine(path, "zlayers"));
+            // Create and save the layers
+            for (int i = 0; i < layerHeight; i++) {
+                // Creating the texture here also caches it
+                Texture2D tex = textureForPlane(new Plane(new Vector3(0, 0, 1), (float)i / (layerHeight - 1)));
+                File.WriteAllBytes(Path.Combine(path, string.Format("zlayers/{0:0000}.png", i)), tex.EncodeToPNG());
+            }
+        }
+    }
+
+    Texture2D textureForPlane(Plane plane) {
+        // Look for the texture in the cache
+        float sqrEpsilon = 1e-8f;
+        int index = cachedTexturePlanes.FindIndex(p => (plane.normal - p.normal).sqrMagnitude < sqrEpsilon && Math.Pow(plane.distance - p.distance, 2) < sqrEpsilon);
+        if (index != -1) {
+            return cachedTextures[index];
+        }
+
+        Texture2D tex = null;
+        if (plane.normal.x == 1f) {
+            tex = new Texture2D(layerWidth, layerNumber, TextureFormat.RGBA32, false);
+            int xLevel = (int)((1 - plane.distance) * (layerHeight - 1) + 0.5f);
+            for (int i = 0; i < layerNumber; i++) {
+                Color[] line = layers[i].GetPixels(0, xLevel, layerWidth, 1);
+                tex.SetPixels(0, layerNumber - 1 - i, layerWidth, 1, line);
+            }   
+        } else if (plane.normal.z == 1f) {
+            tex = new Texture2D(layerHeight, layerNumber, TextureFormat.RGBA32, false);
+            int zLevel = (int)(plane.distance * (layerWidth - 1) + 0.5f);
+            for (int i = 0; i < layerNumber; i++) {
+                Color[] line = layers[i].GetPixels(zLevel, 0, 1, layerHeight);
+                tex.SetPixels(0, layerNumber - 1 - i, layerHeight, 1, line);
+            }
+        } else {
+            // Error!
+            return null;
+        }
+        tex.Apply();
+
+        cachedTextures.Add(tex);
+        cachedTexturePlanes.Add(plane);
+
+        return tex;
     }
 
     // Distances should be from 0 to 1, from (-x/y/z to +x/y/z).
-    void setPlaneTexture(Texture2D tex, Plane plane) {
+    /*void setPlaneTexture(Texture2D tex, Plane plane) {
         if (plane.normal.y == 1f) {
             // Special case for vertical slices
             Texture2D copyTexture = layers[(int)((1 - plane.distance) * (layerNumber - 1) + 0.5f)];
@@ -148,24 +227,16 @@ public class buildMesh : MonoBehaviour {
             }
         }
         tex.Apply();
-    }
+    }*/
 
     void setupTextures() {
         Material baseMaterial = meshRend.material;
         meshRend.materials = new Material[6 * cubeCount];
-        planeTextures = new Texture2D[6 * cubeCount];
-        for (int cubeI = 0; cubeI < cubeCount; cubeI++) {
-            planeTextures[6 * cubeI + 0] = new Texture2D(layerWidth, layerNumber, TextureFormat.RGBA32, false);
-            planeTextures[6 * cubeI + 1] = new Texture2D(layerWidth, layerNumber, TextureFormat.RGBA32, false);
-            planeTextures[6 * cubeI + 2] = new Texture2D(layerWidth, layerHeight, TextureFormat.RGBA32, false);
-            planeTextures[6 * cubeI + 3] = new Texture2D(layerWidth, layerHeight, TextureFormat.RGBA32, false);
-            planeTextures[6 * cubeI + 4] = new Texture2D(layerHeight, layerNumber, TextureFormat.RGBA32, false);
-            planeTextures[6 * cubeI + 5] = new Texture2D(layerHeight, layerNumber, TextureFormat.RGBA32, false);
-        }
         for (int i = 0; i < 6 * cubeCount; i++) {
             meshRend.materials[i] = new Material(baseMaterial);
             meshRend.materials[i].shader = baseMaterial.shader;
-            meshRend.materials[i].mainTexture = planeTextures[i];
+            //meshRend.materials[i].mainTexture = planeTextures[i];
+            // Have the cubes render from the inside out
             meshRend.materials[i].SetOverrideTag("Queue", "Transparent+" + i);
         }
     }
@@ -173,27 +244,27 @@ public class buildMesh : MonoBehaviour {
     void setTextures(MeshRenderer rend) {
         for (int cubeI = 0; cubeI < cubeCount; cubeI++) {
             float layerOffset = cubeI * cubeSeparation;
-            float[] cubeXMinMax = { xLayersMinMax[0] + layerOffset / layerHeight, xLayersMinMax[1] - layerOffset / layerHeight };
-            float[] cubeYMinMax = { yLayersMinMax[0] + layerOffset / layerNumber, yLayersMinMax[1] - layerOffset / layerNumber };
-            float[] cubeZMinMax = { zLayersMinMax[0] + layerOffset / layerWidth, zLayersMinMax[1] - layerOffset / layerWidth };
+            float[] cubeXMinMax = { xLayersMinMax[0] + layerOffset / (layerHeight - 1), xLayersMinMax[1] - layerOffset / (layerHeight - 1) };
+            float[] cubeYMinMax = { yLayersMinMax[0] + layerOffset / (layerNumber - 1), yLayersMinMax[1] - layerOffset / (layerNumber - 1) };
+            float[] cubeZMinMax = { zLayersMinMax[0] + layerOffset / (layerWidth - 1), zLayersMinMax[1] - layerOffset / (layerWidth - 1) };
             // The planes are: -x, +x, -y, +y, -z, +z
             if (xLayersMinMax[0] != xBuiltMinMax[0]) {
-                setPlaneTexture(planeTextures[6 * cubeI + 0], new Plane(new Vector3(1, 0, 0), cubeXMinMax[0]));
+                rend.materials[6 * cubeI + 0].mainTexture = textureForPlane(new Plane(new Vector3(1, 0, 0), cubeXMinMax[0]));
             }
             if (xLayersMinMax[1] != xBuiltMinMax[1]) {
-                setPlaneTexture(planeTextures[6 * cubeI + 1], new Plane(new Vector3(1, 0, 0), cubeXMinMax[1]));
+                rend.materials[6 * cubeI + 1].mainTexture = textureForPlane(new Plane(new Vector3(1, 0, 0), cubeXMinMax[1]));
             }
             if (yLayersMinMax[0] != yBuiltMinMax[0]) {
-                setPlaneTexture(planeTextures[6 * cubeI + 2], new Plane(new Vector3(0, 1, 0), cubeYMinMax[0])); // bottom
+                rend.materials[6 * cubeI + 2].mainTexture = textureForPlane(new Plane(new Vector3(0, 1, 0), cubeYMinMax[0])); // bottom
             }
             if (yLayersMinMax[1] != yBuiltMinMax[1]) {
-                setPlaneTexture(planeTextures[6 * cubeI + 3], new Plane(new Vector3(0, 1, 0), cubeYMinMax[1])); // top
+                rend.materials[6 * cubeI + 3].mainTexture = textureForPlane(new Plane(new Vector3(0, 1, 0), cubeYMinMax[1])); // top
             }
             if (zLayersMinMax[0] != zBuiltMinMax[0]) {
-                setPlaneTexture(planeTextures[6 * cubeI + 4], new Plane(new Vector3(0, 0, 1), cubeZMinMax[0]));
+                rend.materials[6 * cubeI + 4].mainTexture = textureForPlane(new Plane(new Vector3(0, 0, 1), cubeZMinMax[0]));
             }
             if (zLayersMinMax[1] != zBuiltMinMax[1]) {
-                setPlaneTexture(planeTextures[6 * cubeI + 5], new Plane(new Vector3(0, 0, 1), cubeZMinMax[1]));
+                rend.materials[6 * cubeI + 5].mainTexture = textureForPlane(new Plane(new Vector3(0, 0, 1), cubeZMinMax[1]));
             }
         }
         for (int cubeI = 0; cubeI < cubeCount; cubeI++) {
@@ -259,40 +330,39 @@ public class buildMesh : MonoBehaviour {
         isRotating = false;
     }
 
+    bool floatEquals(float a, float b) {
+        float epsilon = 1e-5f;
+        return Math.Abs(a - b) < epsilon;
+    }
+
 	// Update is called once per frame
 	void Update () {
-        Vector3 cameraDir = Camera.main.transform.forward;
-        Vector3 relativeCameraDir = transform.rotation * cameraDir;
-
+        
         float scrollTicks = -Input.mouseScrollDelta.y;
         if (Math.Abs(scrollTicks) > 0) {
-            float absCamX = Math.Abs(relativeCameraDir.x);
-            float absCamY = Math.Abs(relativeCameraDir.y);
-            float absCamZ = Math.Abs(relativeCameraDir.z);
-            if (absCamX > absCamY && absCamX > absCamZ) {
-                if (relativeCameraDir.x < 0) {
-                    xLayersMinMax[1] = constrain(xLayersMinMax[1] + scrollTicks / (layerHeight - 1), 0, 1);
-                    xLayersMinMax[0] = Math.Min(xLayersMinMax[0], xLayersMinMax[1]); // Keep at least one layer visible
-                } else {
-                    xLayersMinMax[0] = constrain(xLayersMinMax[0] - scrollTicks / (layerHeight - 1), 0, 1);
-                    xLayersMinMax[1] = Math.Max(xLayersMinMax[1], xLayersMinMax[0]);
-                }
-            } else if (absCamY > absCamX && absCamY > absCamZ) {
-                if (relativeCameraDir.y > 0) {
-                    yLayersMinMax[1] = constrain(yLayersMinMax[1] + scrollTicks / (layerNumber - 1), 0, 1);
-                    yLayersMinMax[0] = Math.Min(yLayersMinMax[0], yLayersMinMax[1]);
-                } else {
-                    yLayersMinMax[0] = constrain(yLayersMinMax[0] - scrollTicks / (layerNumber - 1), 0, 1);
-                    yLayersMinMax[1] = Math.Max(yLayersMinMax[1], yLayersMinMax[0]);
-                }
-            } else {
-                if (relativeCameraDir.z < 0) {
-                    zLayersMinMax[1] = constrain(zLayersMinMax[1] + scrollTicks / (layerWidth - 1), 0, 1);
-                    zLayersMinMax[0] = Math.Min(zLayersMinMax[0], zLayersMinMax[1]);
-                } else {
-                    zLayersMinMax[0] = constrain(zLayersMinMax[0] - scrollTicks / (layerWidth - 1), 0, 1);
-                    zLayersMinMax[1] = Math.Max(zLayersMinMax[1], zLayersMinMax[0]);
-                }
+            // Detect which face of the object is in front of the camera
+            RaycastHit rayHit;
+            Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out rayHit);
+            Vector3 hitSurfaceNormal = rayHit.transform.InverseTransformDirection(rayHit.normal);
+
+            if (floatEquals(hitSurfaceNormal.x, -1)) {
+                xLayersMinMax[1] = constrain(xLayersMinMax[1] + scrollTicks / (layerHeight - 1), 0, 1);
+                xLayersMinMax[0] = Math.Min(xLayersMinMax[0], xLayersMinMax[1]); // Keep at least one layer visible
+            } else if (floatEquals(hitSurfaceNormal.x, 1)) {
+                xLayersMinMax[0] = constrain(xLayersMinMax[0] - scrollTicks / (layerHeight - 1), 0, 1);
+                xLayersMinMax[1] = Math.Max(xLayersMinMax[1], xLayersMinMax[0]);
+            } else if (floatEquals(hitSurfaceNormal.y, 1)) {
+                yLayersMinMax[1] = constrain(yLayersMinMax[1] + scrollTicks / (layerNumber - 1), 0, 1);
+                yLayersMinMax[0] = Math.Min(yLayersMinMax[0], yLayersMinMax[1]);
+            } else if (floatEquals(hitSurfaceNormal.y, -1)) {
+                yLayersMinMax[0] = constrain(yLayersMinMax[0] - scrollTicks / (layerNumber - 1), 0, 1);
+                yLayersMinMax[1] = Math.Max(yLayersMinMax[1], yLayersMinMax[0]);
+            } else if (floatEquals(hitSurfaceNormal.z, 1)) {
+                zLayersMinMax[1] = constrain(zLayersMinMax[1] + scrollTicks / (layerWidth - 1), 0, 1);
+                zLayersMinMax[0] = Math.Min(zLayersMinMax[0], zLayersMinMax[1]);
+            } else if (floatEquals(hitSurfaceNormal.z, -1)) {
+                zLayersMinMax[0] = constrain(zLayersMinMax[0] - scrollTicks / (layerWidth - 1), 0, 1);
+                zLayersMinMax[1] = Math.Max(zLayersMinMax[1], zLayersMinMax[0]);
             }
 
             Recreate();

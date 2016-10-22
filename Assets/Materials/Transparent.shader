@@ -1,6 +1,5 @@
 Shader "Transparent" {
 	Properties{
-		_Transparency("Relative Transparency", float) = 1.0
 		_MainTex("Base (RGB) Trans (A)", 2D) = "white" { }
 		_RenderIndex("Render Index (Z-Order)", int) = 1
 	}
@@ -13,17 +12,22 @@ Shader "Transparent" {
 		CGPROGRAM
 			#pragma surface surf Lambert alpha
 			sampler2D _MainTex;
-			float _Transparency;
 
 			struct Input {
 				float2 uv_MainTex;
 			};
 
 			void surf(Input IN, inout SurfaceOutput o) {
+				float transparency = 1.0;
+
 				float4 c = tex2D(_MainTex, IN.uv_MainTex);
 				o.Albedo = c.rgb;
-				float baseA = c.r * 0.299 + c.g * 0.587 + c.b * 0.114;
-				o.Alpha = baseA / _Transparency;
+				if (transparency == 0.0) {
+					o.Alpha = 1.0;
+				} else {
+					float baseA = c.r * 0.299 + c.g * 0.587 + c.b * 0.114;
+					o.Alpha = baseA / transparency;
+				}
 			}
 		ENDCG
 
