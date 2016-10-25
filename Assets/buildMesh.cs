@@ -8,7 +8,7 @@ public class buildMesh : MonoBehaviour {
     public string ImageLayerDirectory = "human_kidney_png";
 
     public float yAspectRatio = 2.8f;
-    public int layerSeparation = 3; // basically the pixels between layers
+    public int subcubeSize = 64; // each cube has x, y, and z of this dimension.
     const float rotationSensitivity = 0.3f;
 
     Mesh proceduralMesh;
@@ -17,9 +17,11 @@ public class buildMesh : MonoBehaviour {
     Texture2D[] layers;
     //Texture2D[] planeTextures;
     float scaleFactor;
-    int layerWidth;
-    int layerHeight;
-    int layerNumber;
+    int layerWidth; // Z
+    int layerHeight; // X
+    int layerNumber; // Y
+
+    int[] cubeCounts;
 
     List<Texture2D> cachedTextures = new List<Texture2D>();
     List<Plane> cachedTexturePlanes = new List<Plane>();
@@ -30,45 +32,51 @@ public class buildMesh : MonoBehaviour {
     float[] xLayersMinMax = new float[] { 0, 1 };
     float[] yLayersMinMax = new float[] { 0, 1 };
     float[] zLayersMinMax = new float[] { 0, 1 };
-    float[] xBuiltMinMax = new float[2] { -1, -1 };
-    float[] yBuiltMinMax = new float[2] { -1, -1 };
-    float[] zBuiltMinMax = new float[2] { -1, -1 };
     //Vector3 positiveAxisZoom; // increase to view inner layers on the + side
     //Vector3 negativeAxisZoom; // for - side.
 
-    // Total uncompressed dimensions xl*yl*zl, but x/y/zMinMax (between 0 and 1) specify the sub-part of that to use.
-    void makeMeshLayers(float xl, float yl, float zl, float[] xMinMax, float[] yMinMax, float[] zMinMax, Mesh mesh) {
+    void makeMeshCubes(float xl, float yl, float zl, Mesh mesh) {
         mesh.Clear();
 
-        Vector3 viewNormal = getViewNormal();
-        int layerCount = 
-        mesh.subMeshCount = 6 * layerCount;
+        // Number of cubes to make in each dimension: x, y, z
+        cubeCounts = new int[] { layerHeight / subcubeSize, (int)Math.Ceiling(yAspectRatio * layerNumber / subcubeSize), layerWidth / subcubeSize };
 
-        Vector3[] vertices = new Vector3[24 * layerCount]; // three of each vertex for different textures
-        Vector2[] uvs = new Vector2[24 * layerCount];
+        int totalTextureCount = cubeCounts[0] + cubeCounts[1] + cubeCounts[2];
+        int totalCubeCount = cubeCounts[0] * cubeCounts[1] * cubeCounts[2];
 
-        for (int cubeI = 0; cubeI < layerCount; cubeI++) {
-            float layerOffset = cubeI * layerSeparation;
-            float[] cubeXMinMax = { 1 - xMinMax[0] - layerOffset / (layerHeight - 1), 1 - xMinMax[1] + layerOffset / (layerHeight - 1) };
-            float[] cubeYMinMax = { yMinMax[0] + layerOffset / (layerNumber - 1), yMinMax[1] - layerOffset / (layerNumber - 1) };
-            float[] cubeZMinMax = { zMinMax[0] + layerOffset / (layerWidth - 1), zMinMax[1] - layerOffset / (layerWidth - 1) };
+        mesh.subMeshCount = totalTextureCount;
 
-            int vertI = 24 * cubeI;
-            // three sets of identical vertices, starting at 0 (x planes), 8 (y planes), 16 (z planes).
-            // i&4 == 0 are -z, == 4 are +z
-            // i&2 == 0 are -y, == 2 are +y
-            // i&1 == 0 are -x, == 1 are +x
-            for (int z = 0; z <= 1; z++) {
-                for (int y = 0; y <= 1; y++) {
-                    for (int x = 0; x <= 1; x++) {
-                        vertices[vertI] = new Vector3(xl * (cubeXMinMax[x] - 0.5f), yl * (cubeYMinMax[y] - 0.5f) * yAspectRatio, zl * (cubeZMinMax[z] - 0.5f));
-                        vertices[vertI + 8] = vertices[vertI];
-                        vertices[vertI + 16] = vertices[vertI];
+        Vector3[] vertices = new Vector3[totalCubeCount * 24]; // three of each vertex for different textures
+        Vector2[] uvs = new Vector2[totalCubeCount * 24];
+        
+        // Cube index is cubeZI * (cubeCountY * cubeCountX) + cubeYI * cubeCountX + cubeCountX
+        int cubeI = 0;
+        for (int cubeZI = 0; cubeZI < cubeCounts[2]; cubeZI++) {
+            // These are from 0 (min) to 1 (max) of the cube
+            float[] cubeZMinMax = { (float)cubeZI / cubeCounts[2], (float)(cubeZI + 1) / cubeCounts[2] };
+            for (int cubeYI = 0; cubeYI < cubeCounts[1]; cubeYI++) {
+                float[] cubeYMinMax = { (float)cubeYI / cubeCounts[1], (float)(cubeYI + 1) / cubeCounts[1] };
+                for (int cubeXI = 0; cubeXI < cubeCounts[0]; cubeXI++, cubeI++) {
+                    float[] cubeXMinMax = { 1 - (float)cubeXI / cubeCounts[0], 1 - (float)(cubeXI + 1) / cubeCounts[0] };
+                    
+                    int vertI = 24 * cubeI;
+                    // three sets of identical vertices, starting at 0 (x planes), 8 (y planes), 16 (z planes).
+                    // i&4 == 0 are -z, == 4 are +z
+                    // i&2 == 0 are -y, == 2 are +y
+                    // i&1 == 0 are -x, == 1 are +x
+                    for (int z = 0; z <= 1; z++) {
+                        for (int y = 0; y <= 1; y++) {
+                            for (int x = 0; x <= 1; x++) {
+                                vertices[vertI] = new Vector3(xl * (cubeXMinMax[x] - 0.5f), yl * (cubeYMinMax[y] - 0.5f) * yAspectRatio, zl * (cubeZMinMax[z] - 0.5f));
+                                vertices[vertI + 8] = vertices[vertI];
+                                vertices[vertI + 16] = vertices[vertI];
 
-                        uvs[vertI] = new Vector2(cubeZMinMax[z], cubeYMinMax[y]);
-                        uvs[vertI + 8] = new Vector2(cubeZMinMax[z], cubeXMinMax[x]);
-                        uvs[vertI + 16] = new Vector2(cubeXMinMax[x], cubeYMinMax[y]);
-                        vertI++;
+                                uvs[vertI] = new Vector2(cubeZMinMax[z], cubeYMinMax[y]);
+                                uvs[vertI + 8] = new Vector2(cubeZMinMax[z], cubeXMinMax[x]);
+                                uvs[vertI + 16] = new Vector2(cubeXMinMax[x], cubeYMinMax[y]);
+                                vertI++;
+                            }
+                        }
                     }
                 }
             }
@@ -77,36 +85,54 @@ public class buildMesh : MonoBehaviour {
         mesh.uv = uvs;
 
         int meshI = 0;
-        for (int cubeI = 0; cubeI < layerCount; cubeI++) {
-            // loop x, y, z
-            for (int i = 0; i < 3; i++) {
-                int heldDimI = 1 << i;
-                int dim1I = 1 << ((i + 1) % 3);
-                int dim2I = 1 << ((i + 2) % 3);
+        // loop x, y, z
+        int[] dimIs = new int[3];
+        for (int i = 0; i < 3; i++) {
+            // 1, 2, 4 are the index distances for x, y, and z in the vertices array.
+            // These numbers can be added or not to the baseI below to get the desired vertex index.
+            // Adding 1 or not would be the difference between a vertex with x = 1 or x = -1, and so forth.
+            int heldDimI = 1 << i;
+            int dim1I = 1 << ((i + 1) % 3);
+            int dim2I = 1 << ((i + 2) % 3);
 
-                // - and + sides
-                for (int j = 0; j < 2; j++) {
-                    int[] triangles = new int[6];
+            int mainCount = cubeCounts[i];
+            int otherCount1 = cubeCounts[(i + 1) % 3];
+            int otherCount2 = cubeCounts[(i + 2) % 3];
 
-                    int baseI = 24 * cubeI + i * 8 + heldDimI * j;
-                    int vert0 = baseI;
-                    int vert1 = baseI + dim1I;
-                    int vert2 = baseI + dim2I;
-                    int vert3 = baseI + dim1I + dim2I;
+            for (dimIs[0] = 0; dimIs[0] < mainCount; dimIs[0]++) {
+                int[] triangles = new int[otherCount1 * otherCount2 * 12];
 
-                    // (-, -), (+, -), (+, +)
-                    triangles[0] = j == 0 ? vert0 : vert3;
-                    triangles[1] = vert1;
-                    triangles[2] = j == 0 ? vert3 : vert0;
+                int triangleI = 0;
+                for (dimIs[1] = 0; dimIs[1] < otherCount1; dimIs[1]++) {
+                    for (dimIs[2] = 0; dimIs[2] < otherCount2; dimIs[2]++) {
+                        int cubeXI = dimIs[(3 - i) % 3];
+                        int cubeYI = dimIs[(4 - i) % 3];
+                        int cubeZI = dimIs[2 - i];
+                        int cubeIndex = cubeZI * (cubeCounts[1] * cubeCounts[0]) + cubeYI * cubeCounts[0] + cubeXI;
 
-                    // (+, +), (-, +), (-, -)
-                    triangles[3] = j == 0 ? vert3 : vert0;
-                    triangles[4] = vert2;
-                    triangles[5] = j == 0 ? vert0 : vert3;
+                        // - and + sides
+                        for (int j = 0; j < 2; j++) {
+                            int baseI = 24 * cubeIndex + i * 8 + heldDimI * j;
+                            int vert0 = baseI;
+                            int vert1 = baseI + dim1I;
+                            int vert2 = baseI + dim2I;
+                            int vert3 = baseI + dim1I + dim2I;
+                            
+                            triangles[triangleI + 0] = j == 0 ? vert0 : vert3;
+                            triangles[triangleI + 1] = vert1;
+                            triangles[triangleI + 2] = j == 0 ? vert3 : vert0;
+                            
+                            triangles[triangleI + 3] = j == 0 ? vert3 : vert0;
+                            triangles[triangleI + 4] = vert2;
+                            triangles[triangleI + 5] = j == 0 ? vert0 : vert3;
 
-                    mesh.SetTriangles(triangles, meshI);
-                    meshI++;
+                            triangleI += 6;
+                        }
+                    }
                 }
+
+                mesh.SetTriangles(triangles, meshI);
+                meshI++;
             }
         }
     }
@@ -146,7 +172,9 @@ public class buildMesh : MonoBehaviour {
             for (int i = 0; i < layerNumber; i++) {
                 Color[] line = layers[i].GetPixels(0, xLevel, layerWidth, 1);
                 tex.SetPixels(0, layerNumber - 1 - i, layerWidth, 1, line);
-            }   
+            }
+        } else if (plane.normal.y == 1f) {
+            tex = layers[(int)((1 - plane.distance) * (layerNumber - 1) + 0.5f)];
         } else if (plane.normal.z == 1f) {
             tex = new Texture2D(layerHeight, layerNumber, TextureFormat.RGBA32, false);
             int zLevel = (int)(plane.distance * (layerWidth - 1) + 0.5f);
@@ -168,55 +196,46 @@ public class buildMesh : MonoBehaviour {
 
     void setupTextures() {
         Material baseMaterial = meshRend.material;
-        meshRend.materials = new Material[6 * layerCount];
-        for (int i = 0; i < 6 * layerCount; i++) {
+        meshRend.materials = new Material[proceduralMesh.subMeshCount];
+        for (int i = 0; i < meshRend.materials.Length; i++) {
             meshRend.materials[i] = new Material(baseMaterial);
             meshRend.materials[i].shader = baseMaterial.shader;
+            meshRend.materials[i].hideFlags = HideFlags.HideAndDontSave | HideFlags.HideInInspector;
             //meshRend.materials[i].mainTexture = planeTextures[i];
             // Have the cubes render from the inside out
-            meshRend.materials[i].SetOverrideTag("Queue", "Transparent+" + i);
+            //meshRend.materials[i].SetOverrideTag("Queue", "Transparent+" + i);
         }
     }
 
-    void setTextures(MeshRenderer rend) {
-        for (int cubeI = 0; cubeI < layerCount; cubeI++) {
-            float layerOffset = cubeI * layerSeparation;
-            float[] cubeXMinMax = { xLayersMinMax[0] + layerOffset / (layerHeight - 1), xLayersMinMax[1] - layerOffset / (layerHeight - 1) };
-            float[] cubeYMinMax = { yLayersMinMax[0] + layerOffset / (layerNumber - 1), yLayersMinMax[1] - layerOffset / (layerNumber - 1) };
-            float[] cubeZMinMax = { zLayersMinMax[0] + layerOffset / (layerWidth - 1), zLayersMinMax[1] - layerOffset / (layerWidth - 1) };
-            // The planes are: -x, +x, -y, +y, -z, +z
-            if (xLayersMinMax[0] != xBuiltMinMax[0]) {
-                rend.materials[6 * cubeI + 0].mainTexture = textureForPlane(new Plane(new Vector3(1, 0, 0), cubeXMinMax[0]));
-            }
-            if (xLayersMinMax[1] != xBuiltMinMax[1]) {
-                rend.materials[6 * cubeI + 1].mainTexture = textureForPlane(new Plane(new Vector3(1, 0, 0), cubeXMinMax[1]));
-            }
-            if (yLayersMinMax[0] != yBuiltMinMax[0]) {
-                rend.materials[6 * cubeI + 2].mainTexture = textureForPlane(new Plane(new Vector3(0, 1, 0), cubeYMinMax[0])); // bottom
-            }
-            if (yLayersMinMax[1] != yBuiltMinMax[1]) {
-                rend.materials[6 * cubeI + 3].mainTexture = textureForPlane(new Plane(new Vector3(0, 1, 0), cubeYMinMax[1])); // top
-            }
-            if (zLayersMinMax[0] != zBuiltMinMax[0]) {
-                rend.materials[6 * cubeI + 4].mainTexture = textureForPlane(new Plane(new Vector3(0, 0, 1), cubeZMinMax[0]));
-            }
-            if (zLayersMinMax[1] != zBuiltMinMax[1]) {
-                rend.materials[6 * cubeI + 5].mainTexture = textureForPlane(new Plane(new Vector3(0, 0, 1), cubeZMinMax[1]));
+    /*void setTextures(MeshRenderer rend) {
+        int meshI = 0;
+        // loop x, y, z
+        for (int i = 0; i < 3; i++) {
+            Vector3 planeDirection = new Vector3(i == 0 ? 1 : 0, i == 1 ? 1 : 0, i == 2 ? 1 : 0);
+            for (int j = 0; j < cubeCounts[i]; j++) {
+                rend.materials[meshI].mainTexture = textureForPlane(new Plane(planeDirection, (float)j / (cubeCounts[i] - 1)));
+                meshI++;
             }
         }
-        for (int cubeI = 0; cubeI < layerCount; cubeI++) {
-            for (int i = 0; i < 6; i++) {
-                //rend.materials[i].SetOverrideTag("Queue", "Transparent+" + (cubeCount - cubeI));
-                rend.materials[cubeI * 6 + i].renderQueue = 3000 + (layerCount - cubeI);
-                //rend.materials[i].renderQueue = -;
+    }*/
+
+    void updateMaterials() {
+        Vector3 cameraDirection = transform.InverseTransformDirection(Camera.main.transform.forward);
+
+        int meshI = 0;
+        // loop x, y, z
+        float[] cameraDirXyz = new float[3] {cameraDirection.x, cameraDirection.y, cameraDirection.z };
+        for (int i = 0; i < 3; i++) {
+            Vector3 planeDirection = new Vector3(i == 0 ? 1 : 0, i == 1 ? 1 : 0, i == 2 ? 1 : 0);
+            
+            int count = cubeCounts[i];
+            for (int j = 0; j < count; j++) {
+                int drawIndex = (int)(2000 * cameraDirXyz[i] * j / count * (i == 1 || i == 2 ? -1 : 1)) + 2000;
+                meshRend.materials[meshI].renderQueue = 3000 + drawIndex;
+                meshRend.materials[meshI].mainTexture = textureForPlane(new Plane(planeDirection, (float)j / (count - 1)));
+                meshI++;
             }
         }
-        xBuiltMinMax[0] = xLayersMinMax[0];
-        xBuiltMinMax[1] = xLayersMinMax[1];
-        yBuiltMinMax[0] = yLayersMinMax[0];
-        yBuiltMinMax[1] = yLayersMinMax[1];
-        zBuiltMinMax[0] = zLayersMinMax[0];
-        zBuiltMinMax[1] = zLayersMinMax[1];
     }
 
     // Use this for initialization
@@ -228,8 +247,7 @@ public class buildMesh : MonoBehaviour {
         scaleFactor = 2f / layerWidth;
 
         meshRend = GetComponent<MeshRenderer>();
-        setupTextures();
-
+        
         meshCollider = GetComponent<MeshCollider>();
         meshCollider.sharedMesh = proceduralMesh;
 
@@ -241,12 +259,12 @@ public class buildMesh : MonoBehaviour {
     }
 
     void Recreate() {
-        //float[] xMinMax = new float[] { scaleFactor * layerWidth * (-1 + negativeAxisZoom.x) * 0.5f, scaleFactor * layerWidth * (1 - positiveAxisZoom.x) * 0.5f };
-        //float[] yMinMax = new float[] { scaleFactor * layerNumber * (-1 + negativeAxisZoom.y) * 0.5f, scaleFactor * layerNumber * (1 - positiveAxisZoom.y) * 0.5f };
-        //float[] zMinMax = new float[] { scaleFactor * layerHeight * (-1 + negativeAxisZoom.z) * 0.5f, scaleFactor * layerHeight * (1 - positiveAxisZoom.z) * 0.5f };
+        cachedTextures.Clear();
+        cachedTexturePlanes.Clear();
 
-        makeCubes(scaleFactor * layerWidth, scaleFactor * layerNumber, scaleFactor * layerHeight, xLayersMinMax, yLayersMinMax, zLayersMinMax, proceduralMesh);
-        setTextures(meshRend);
+        makeMeshCubes(scaleFactor * layerWidth, scaleFactor * layerNumber, scaleFactor * layerHeight, proceduralMesh);
+        setupTextures();
+        updateMaterials();
     }
 	
     void OnMouseDown() {
@@ -258,6 +276,7 @@ public class buildMesh : MonoBehaviour {
         if (isRotating) {
             Vector3 change = (Input.mousePosition - dragStartPosition) * rotationSensitivity;
             transform.Rotate(change.y, -change.x, 0, Space.World);
+            updateMaterials();
 
             dragStartPosition = Input.mousePosition;
         }
@@ -276,58 +295,11 @@ public class buildMesh : MonoBehaviour {
         // Detect which face of the object is in front of the camera, return that normal
         RaycastHit rayHit;
         Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out rayHit);
+        if (rayHit.transform == null) {
+            return Vector3.zero;
+        }
         Vector3 hitSurfaceNormal = rayHit.transform.InverseTransformDirection(rayHit.normal);
         return hitSurfaceNormal;
-    }
-
-    enum MeshView: int {
-        X = 0,
-        Y,
-        Z,
-        XZ,
-        XNZ, // N means X and Z have different signs
-        XY,
-        XNY,
-        YZ,
-        YNZ
-    }
-
-    // Which mesh should we be using right now
-    MeshView getCurrentMeshView() {
-        // Detect which point of the object is in front of the camera
-        RaycastHit rayHit;
-        Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out rayHit);
-        Vector3 p = rayHit.transform.InverseTransformDirection(rayHit.point);
-
-        float absX = Math.Abs(p.x);
-        float absY = Math.Abs(p.y);
-        float absZ = Math.Abs(p.z);
-
-        if (absX >= absY && absX >= absZ) {
-            if (absY >= absZ && absY >= 0.5f) {
-                return (p.x * p.y > 0) ? MeshView.XY : MeshView.XNY;
-            } else if (absZ >= 0.5f) {
-                return (p.x * p.z > 0) ? MeshView.XZ : MeshView.XNZ;
-            } else {
-                return MeshView.X;
-            }
-        } else if (Math.Abs(p.y) >= Math.Abs(p.z)) {
-            if (absX >= absZ && absX >= 0.5f) {
-                return (p.y * p.x > 0) ? MeshView.XY : MeshView.XNY;
-            } else if (absZ >= 0.5f) {
-                return (p.y * p.z > 0) ? MeshView.YZ : MeshView.YNZ;
-            } else {
-                return MeshView.Y;
-            }
-        } else {
-            if (absX >= absY && absX >= 0.5f) {
-                return (p.z * p.x > 0) ? MeshView.XZ : MeshView.XNZ;
-            } else if (absY >= 0.5f) {
-                return (p.z * p.y > 0) ? MeshView.YZ : MeshView.YNZ;
-            } else {
-                return MeshView.Z;
-            }
-        }
     }
 
 	// Update is called once per frame

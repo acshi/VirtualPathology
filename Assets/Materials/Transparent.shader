@@ -1,14 +1,40 @@
 Shader "Transparent" {
 	Properties{
 		_MainTex("Base (RGB) Trans (A)", 2D) = "white" { }
-		_RenderIndex("Render Index (Z-Order)", int) = 1
 	}
 
 	SubShader{
-		Tags{ "Queue" = "Transparent" "IgnoreProjector" = "True" "RenderType" = "Transparent" "Preview Type" = "Plane" }
+		Tags{ "Queue" = "Transparent" "IgnoreProjector" = "True" "RenderType" = "Transparent" }
 
-		Cull Back
+		Cull Off
 		LOD 200 // level of detail = diffuse
+		
+		// Write depth only first (https://community.unity.com/t5/Shaders/Transparent-Depth-Shader-good-for-ghosts/td-p/1108978)
+		Pass {
+			ZWrite On
+			ColorMask 0
+
+			CGPROGRAM
+				#pragma vertex vert
+				#pragma fragment frag
+				#include "UnityCG.cginc"
+
+				struct v2f {
+					float4 pos : SV_POSITION;
+				};
+
+				v2f vert(appdata_base v) {
+					v2f o;
+					o.pos = mul(UNITY_MATRIX_MVP, v.vertex);
+					return o;
+				}
+
+				half4 frag(v2f i) : COLOR {
+					return half4 (0, 0, 0, 0);
+				}
+			ENDCG
+		}
+
 		CGPROGRAM
 			#pragma surface surf Lambert alpha
 			sampler2D _MainTex;
