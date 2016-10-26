@@ -227,11 +227,17 @@ public class buildMesh : MonoBehaviour {
         float[] cameraDirXyz = new float[3] {cameraDirection.x, cameraDirection.y, cameraDirection.z };
         for (int i = 0; i < 3; i++) {
             Vector3 planeDirection = new Vector3(i == 0 ? 1 : 0, i == 1 ? 1 : 0, i == 2 ? 1 : 0);
+
+            float absDir = Math.Abs(cameraDirXyz[i]);
+            float otherAbsDir1 = Math.Abs(cameraDirXyz[(i + 1) % 3]);
+            float otherAbsDir2 = Math.Abs(cameraDirXyz[(i + 2) % 3]);
+
+            bool notMain = absDir < otherAbsDir1 || absDir < otherAbsDir2;
             
             int count = cubeCounts[i];
             for (int j = 0; j < count; j++) {
-                int drawIndex = (int)(2000 * cameraDirXyz[i] * j / count * (i == 1 || i == 2 ? -1 : 1)) + 2000;
-                meshRend.materials[meshI].renderQueue = 3000 + drawIndex;
+                int drawIndex = (int)(2000 * -cameraDirXyz[i] * j / count * (i == 0 ? -1 : 1)) + 2000;
+                meshRend.materials[meshI].renderQueue = 3000 + drawIndex + (notMain ? 3000 : 0);
                 meshRend.materials[meshI].mainTexture = textureForPlane(new Plane(planeDirection, (float)j / (count - 1)));
                 meshI++;
             }
