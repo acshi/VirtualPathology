@@ -44,7 +44,7 @@ Shader "Transparent" {
 			};
 
 			void surf(Input IN, inout SurfaceOutput o) {
-				float transparency = 1.0;
+				float transparency = 0.01;
 
 				float4 c = tex2D(_MainTex, IN.uv_MainTex);
 				o.Albedo = c.rgb;

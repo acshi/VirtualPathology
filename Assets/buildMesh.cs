@@ -23,6 +23,8 @@ public class buildMesh : MonoBehaviour {
 
     int[] cubeCounts;
 
+    int[][] allTriangles; // [subMeshIndex][triangleIndex]
+
     List<Texture2D> cachedTextures = new List<Texture2D>();
     List<Plane> cachedTexturePlanes = new List<Plane>();
     
@@ -45,6 +47,7 @@ public class buildMesh : MonoBehaviour {
         int totalCubeCount = cubeCounts[0] * cubeCounts[1] * cubeCounts[2];
 
         mesh.subMeshCount = totalTextureCount;
+        allTriangles = new int[totalTextureCount][];
 
         Vector3[] vertices = new Vector3[totalCubeCount * 24]; // three of each vertex for different textures
         Vector2[] uvs = new Vector2[totalCubeCount * 24];
@@ -101,6 +104,7 @@ public class buildMesh : MonoBehaviour {
 
             for (dimIs[0] = 0; dimIs[0] < mainCount; dimIs[0]++) {
                 int[] triangles = new int[otherCount1 * otherCount2 * 12];
+                allTriangles[meshI] = triangles;
 
                 int triangleI = 0;
                 for (dimIs[1] = 0; dimIs[1] < otherCount1; dimIs[1]++) {
@@ -117,11 +121,11 @@ public class buildMesh : MonoBehaviour {
                             int vert1 = baseI + dim1I;
                             int vert2 = baseI + dim2I;
                             int vert3 = baseI + dim1I + dim2I;
-                            
+
                             triangles[triangleI + 0] = j == 0 ? vert0 : vert3;
                             triangles[triangleI + 1] = vert1;
                             triangles[triangleI + 2] = j == 0 ? vert3 : vert0;
-                            
+
                             triangles[triangleI + 3] = j == 0 ? vert3 : vert0;
                             triangles[triangleI + 4] = vert2;
                             triangles[triangleI + 5] = j == 0 ? vert0 : vert3;
@@ -253,9 +257,7 @@ public class buildMesh : MonoBehaviour {
         scaleFactor = 2f / layerWidth;
 
         meshRend = GetComponent<MeshRenderer>();
-        
         meshCollider = GetComponent<MeshCollider>();
-        meshCollider.sharedMesh = proceduralMesh;
 
         Recreate();
 	}
@@ -269,13 +271,45 @@ public class buildMesh : MonoBehaviour {
         cachedTexturePlanes.Clear();
 
         makeMeshCubes(scaleFactor * layerWidth, scaleFactor * layerNumber, scaleFactor * layerHeight, proceduralMesh);
+        meshCollider.sharedMesh = proceduralMesh;
         setupTextures();
         updateMaterials();
+    }
+
+    void getMeshITriangleI(int globalTriangleI, out int meshI, out int triangleI) {
+        int previousIndexSum = 0;
+        for (int i = 0; i < allTriangles.Length; i++) {
+            int relativeI = globalTriangleI - previousIndexSum;
+            if (relativeI < allTriangles[i].Length) {
+                meshI = i;
+                triangleI = relativeI;
+                return;
+            }
+            previousIndexSum += allTriangles[i].Length;
+        }
+        meshI = -1;
+        triangleI = -1;
     }
 	
     void OnMouseDown() {
         isRotating = true;
         dragStartPosition = Input.mousePosition;
+
+        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+        RaycastHit rayHit;
+        if (Physics.Raycast(ray, out rayHit) && rayHit.triangleIndex != -1 && Input.GetKey("left ctrl")) {
+            int meshI;
+            int triangleI;
+            getMeshITriangleI(rayHit.triangleIndex * 3, out meshI, out triangleI);
+            
+            allTriangles[meshI][triangleI + 0] = 0;
+            allTriangles[meshI][triangleI + 1] = 0;
+            allTriangles[meshI][triangleI + 2] = 0;
+
+            proceduralMesh.SetTriangles(allTriangles[meshI], meshI);
+            meshCollider.sharedMesh = null;
+            meshCollider.sharedMesh = proceduralMesh;
+        }
     }
 
     void OnMouseDrag() {
