@@ -4,35 +4,26 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
+// Simple Behavior to forward events from a mesh to the main buildMesh behavior
 public class SubmeshEvents : MonoBehaviour {
-
     public buildMesh buildMesh;
-
-    void Start() {
-
-    }
-
+    void Start() {}
     void OnMouseDown() {
         if (buildMesh != null) {
             buildMesh.OnMouseDown();
         }
     }
-
     void OnMouseDrag() {
         if (buildMesh != null) {
             buildMesh.OnMouseDrag();
         }
     }
-
     void OnMouseUp() {
-        if (buildMesh != null) {
-            buildMesh.OnMouseUp();
-        }
-    }
-
-    void Update() {
-
-    }
+		if (buildMesh != null) {
+			buildMesh.OnMouseUp ();
+		}
+	}
+    void Update() {}
 }
 
 public class buildMesh : MonoBehaviour {
@@ -42,16 +33,20 @@ public class buildMesh : MonoBehaviour {
     public int subcubeSize = 64; // each cube has x, y, and z of this dimension.
     const float rotationSensitivity = 0.3f;
 
-    Texture2D[] layers;
+    Texture2D[] layers; // original image files -- the y axis
     float scaleFactor;
     int layerWidth; // Z
     int layerHeight; // X
     int layerNumber; // Y
 
+	// Number of cubes in each of x, y, and z axes
     int[] cubeCounts;
 
+	// Each mesh will be a cuboid with full x and y dimensions, but will take a section of the total z
+	// This way each mesh can have less than 65536 vertices.
     int zPerMesh;
 
+	// Used as a reference only to set up the materials of the meshes
     MeshRenderer baseRenderer;
 
     GameObject[] gameObjects;
@@ -102,7 +97,9 @@ public class buildMesh : MonoBehaviour {
             MeshCollider collider;
             if (gameObjects[meshI] == null) {
                 gameObjects[meshI] = new GameObject("mesh" + meshI);
-                //gameObjects[meshI].AddComponent<SubmeshEvents>();
+				// query unity for existing mesh (if gameObjects is cleared) before creating new one
+                SubmeshEvents submeshEvents = gameObjects[meshI].AddComponent<SubmeshEvents>();
+				submeshEvents.buildMesh = this;
 
                 MeshFilter filter = gameObjects[meshI].AddComponent<MeshFilter>();
                 mesh = filter.mesh;
@@ -113,15 +110,14 @@ public class buildMesh : MonoBehaviour {
                 colliders[meshI] = collider;
             } else {
                 mesh = meshes[meshI];
-                collider = gameObjects[meshI].GetComponent<MeshCollider>();
+				collider = colliders[meshI];
             }
 
-            if (allTriangles[meshI] == null || allTriangles[meshI].Length != meshTextureCount) {
-                allTriangles[meshI] = new int[meshTextureCount][];
+			mesh.subMeshCount = meshTextureCount;
+			if (allTriangles[meshI] == null || allTriangles[meshI].Length != mesh.subMeshCount) {
+				allTriangles[meshI] = new int[mesh.subMeshCount][];
             }
-
-            mesh.subMeshCount = meshTextureCount;
-
+            
             Vector3[] vertices = new Vector3[meshCubeCount * 24]; // three of each vertex for different textures
             Vector2[] uvs = new Vector2[meshCubeCount * 24];
         
@@ -132,7 +128,7 @@ public class buildMesh : MonoBehaviour {
                 float[] cubeZMinMax = { (float)cubeZI / cubeCounts[2], (float)(cubeZI + 1) / cubeCounts[2] };
                 for (int cubeYI = 0; cubeYI < cubeCounts[1]; cubeYI++) {
                     float[] cubeYMinMax = { (float)cubeYI / cubeCounts[1], (float)(cubeYI + 1) / cubeCounts[1] };
-                    for (int cubeXI = 0; cubeXI < cubeCounts[0]; cubeXI++, cubeI++) {
+                    for (int cubeXI = 0; cubeXI < cubeCounts[0]; cubeXI++) {
                         float[] cubeXMinMax = { 1 - (float)cubeXI / cubeCounts[0], 1 - (float)(cubeXI + 1) / cubeCounts[0] };
                     
                         int vertI = 24 * cubeI;
@@ -154,6 +150,7 @@ public class buildMesh : MonoBehaviour {
                                 }
                             }
                         }
+						cubeI++;
                     }
                 }
             }
@@ -177,6 +174,11 @@ public class buildMesh : MonoBehaviour {
                 
                 for (dimIs[0] = 0; dimIs[0] < mainCount; dimIs[0]++) {
                     int[] triangles = allTriangles[meshI][submeshI];
+					// E.g. If we are making faces pointing in the x-direction (i = 0)
+					// Then we will have yCubeCount*zCubeCount cubes to make
+					// But we are only making the 2 squares in the x-direction for each 
+					// That makes 4 triangles per cube, each with 3 vertices, so the array is
+					// yCubeCount * zCubeCount * 4 * 3 in length
                     if (triangles == null || triangles.Length != otherCount1 * otherCount2 * 12) {
                         triangles = new int[otherCount1 * otherCount2 * 12];
                         allTriangles[meshI][submeshI] = triangles;
@@ -191,14 +193,17 @@ public class buildMesh : MonoBehaviour {
                             int relativeCubeZI = dimIs[2 - i]; // equal to cubeZI - meshI * zPerMesh
                             int cubeIndex = relativeCubeZI * (cubeCounts[1] * cubeCounts[0]) + cubeYI * cubeCounts[0] + cubeXI;
 
-                            // - and + sides
+							// - (j=0) and + (j=1) sides
                             for (int j = 0; j < 2; j++) {
+								// i * 8 gives us a unique copy of vertices with uv values for our plane direction
                                 int baseI = 24 * cubeIndex + i * 8 + heldDimI * j;
                                 int vert0 = baseI;
                                 int vert1 = baseI + dim1I;
                                 int vert2 = baseI + dim2I;
                                 int vert3 = baseI + dim1I + dim2I;
 
+								// Swapping the order of the indices gives the triangle a normal facing
+								// in the opposite direction. This is needed so that both cube planes face outward
                                 triangles[triangleI + 0] = j == 0 ? vert0 : vert3;
                                 triangles[triangleI + 1] = vert1;
                                 triangles[triangleI + 2] = j == 0 ? vert3 : vert0;
@@ -307,7 +312,9 @@ public class buildMesh : MonoBehaviour {
     }*/
 
     void updateMaterials() {
-        Vector3 cameraDirection = transform.InverseTransformDirection(Camera.main.transform.forward);
+		// Camera direction in the local space of the mesh
+		Vector3 cameraDirection = gameObjects[0].transform.InverseTransformDirection(Camera.main.transform.forward);
+		Vector3 centerNormal = getViewNormal(); // normal of plane in center of view
 
         for (int meshI = 0; meshI < meshes.Length; meshI++) {
             MeshRenderer meshRend = renderers[meshI];
@@ -315,19 +322,22 @@ public class buildMesh : MonoBehaviour {
             int submeshI = 0;
             // loop x, y, z
             float[] cameraDirXyz = new float[3] {cameraDirection.x, cameraDirection.y, cameraDirection.z };
+			float[] centerNXyz = new float[3] { centerNormal.x, centerNormal.y, centerNormal.z };
             for (int i = 0; i < 3; i++) {
                 Vector3 planeDirection = new Vector3(i == 0 ? 1 : 0, i == 1 ? 1 : 0, i == 2 ? 1 : 0);
 
-                float absDir = Math.Abs(cameraDirXyz[i]);
-                float otherAbsDir1 = Math.Abs(cameraDirXyz[(i + 1) % 3]);
-                float otherAbsDir2 = Math.Abs(cameraDirXyz[(i + 2) % 3]);
+				float absDir = Math.Abs(centerNXyz[i]);
+				float otherAbsDir1 = Math.Abs(centerNXyz[(i + 1) % 3]);
+				float otherAbsDir2 = Math.Abs(centerNXyz[(i + 2) % 3]);
 
                 bool notMain = absDir < otherAbsDir1 || absDir < otherAbsDir2;
 
                 int count = cubeCounts[i];
                 // Only pass through those index values for this specific set of z values
                 for (int j = (i == 2) ? meshI * zPerMesh : 0; j < count && ((i == 2) ? j < (meshI + 1) * zPerMesh : true); j++) {
-                    int drawIndex = (int)(2000 * -cameraDirXyz[i] * j / count * (i == 0 ? -1 : 1)) + 2000;
+                    // Some of these numbers are arbitrary, but the important thing is that the faces
+					// render back to front, and that the main axis faces also render before the other axes
+					int drawIndex = (int)(2000 * -cameraDirXyz[i] * j / count * (i == 0 ? -1 : 1)) + 2000;
                     meshRend.materials[submeshI].renderQueue = 3000 + drawIndex + (notMain ? 3000 : 0);
                     meshRend.materials[submeshI].mainTexture = textureForPlane(new Plane(planeDirection, (float)j / (count - 1)));
                     submeshI++;
@@ -360,6 +370,7 @@ public class buildMesh : MonoBehaviour {
         updateMaterials();
     }
 
+	// Doesn't deal with multiple meshes. Broken!
     void getMeshISubmeshITriangleI(int globalTriangleI, out int meshI, out int submeshI, out int triangleI) {
         int previousIndexSum = 0;
         for (int i = 0; i < allTriangles.Length; i++) {
