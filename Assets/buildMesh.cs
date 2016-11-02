@@ -3,6 +3,7 @@ using System.IO;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Collections;
 
 // Simple Behavior to forward events from a mesh to the main buildMesh behavior
 public class SubmeshEvents : MonoBehaviour {
@@ -28,6 +29,7 @@ public class SubmeshEvents : MonoBehaviour {
 
 public class buildMesh : MonoBehaviour {
     public string ImageLayerDirectory = "human_kidney_png";
+	public bool loadFromStreamingAssets = true;
 
     public float yAspectRatio = 2.8f;
     public int subcubeSize = 64; // each cube has x, y, and z of this dimension.
@@ -228,7 +230,18 @@ public class buildMesh : MonoBehaviour {
 
     void loadLayerFiles() {
         // The files in the designated folder have the source y-layers
-        string path = Path.Combine(Application.streamingAssetsPath, ImageLayerDirectory);
+		string path;
+		if (loadFromStreamingAssets) {
+			path = Path.Combine (Application.streamingAssetsPath, ImageLayerDirectory);
+		} else {
+			path = ImageLayerDirectory;
+		}
+
+		//debugging
+		if (!Directory.Exists(path)) {
+			Debug.Log ("Directory does not exist");
+		}
+
         string[] files = Directory.GetFiles(path, "*.png");
         layers = new Texture2D[files.Length];
 
