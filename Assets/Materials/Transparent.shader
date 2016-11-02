@@ -44,58 +44,27 @@ Shader "Transparent" {
 			};
 
 			void surf(Input IN, inout SurfaceOutput o) {
-				float transparency = 0.4;
+				float transparency = 0.8;
+				bool useTransferFunc = true;
 
 				float4 c = tex2D(_MainTex, IN.uv_MainTex);
-				o.Albedo = c.rgb;
+				if (useTransferFunc) {
+					o.Albedo.r = pow(10, -c.g * 0.046 - c.r * 0.490);
+					o.Albedo.g = pow(10, -c.g * 0.842 - c.r * 0.769);
+					o.Albedo.b = pow(10, -c.g * 0.537 - c.r * 0.410);
+				} else {
+					o.Albedo = c.rgb;
+				}
 				if (transparency == 0.0) {
 					o.Alpha = 1.0;
 				} else {
-					float baseA = c.r * 0.299 + c.g * 0.587 + c.b * 0.114;
+					float baseA = o.Albedo.r * 0.299 + o.Albedo.g * 0.587 + o.Albedo.b * 0.114;
+					if (useTransferFunc) {
+						baseA = 1.0 - baseA;
+					}
 					o.Alpha = baseA / transparency;
 				}
 			}
 		ENDCG
-
-		/*Cull Back
-		LOD 200 // level of detail = diffuse
-		CGPROGRAM
-			#pragma surface surf Lambert alpha
-			sampler2D _MainTex;
-			float _Transparency;
-
-			struct Input {
-				float2 uv_MainTex;
-			};
-
-			void surf(Input IN, inout SurfaceOutput o) {
-				float4 c = tex2D(_MainTex, IN.uv_MainTex);
-				o.Albedo = c.rgb;
-				float baseA = c.r * 0.299 + c.g * 0.587 + c.b * 0.114;
-				o.Alpha = baseA / _Transparency;
-			}
-		ENDCG*/
-		
-		// Set up alpha blending
-		//Blend SrcAlpha OneMinusSrcAlpha
-
-		// Render the back facing parts of the object.
-		// If the object is convex, these will always be further away
-		// than the front-faces.
-		/*Pass{
-			Cull Front
-			SetTexture[_MainTex]{
-				Combine Texture
-			}
-		}
-			// Render the parts of the object facing us.
-			// If the object is convex, these will be closer than the
-			// back-faces.
-		Pass{
-			Cull Back
-			SetTexture[_MainTex]{
-				Combine Texture
-			}
-		}*/
 	}
 }
