@@ -223,7 +223,6 @@ public class buildMesh : MonoBehaviour {
                     submeshI++;
                 }
             }
-            
             collider.sharedMesh = mesh;
         }
     }
@@ -384,43 +383,51 @@ public class buildMesh : MonoBehaviour {
     }
 
 	// Doesn't deal with multiple meshes. Broken!
-    void getMeshISubmeshITriangleI(int globalTriangleI, out int meshI, out int submeshI, out int triangleI) {
-        int previousIndexSum = 0;
-        for (int i = 0; i < allTriangles.Length; i++) {
-            int relativeI = globalTriangleI - previousIndexSum;
-            if (relativeI < allTriangles[i].Length) {
-                meshI = i;
-                submeshI = i;
-                triangleI = relativeI;
-                return;
-            }
-            previousIndexSum += allTriangles[i].Length;
-        }
-        meshI = -1;
-        submeshI = -1;
-        triangleI = -1;
+	void getMeshISubmeshITriangleI(RaycastHit rayhit, out int meshI, out int submeshI, out int triangleI) {
+		int globalTriangleI = rayhit.triangleIndex * 3;
+		int previousIndexSum = 0;
+		Debug.Log("globalTriangleI: " + globalTriangleI);
+		Debug.Log("allTriangles.Length: " + allTriangles.Length);
+		int meshNum = Int32.Parse(rayhit.collider.name.Substring("mesh".Length));
+		for (int i = 0; i < allTriangles[meshNum].Length; i++) {
+			int relativeI = globalTriangleI - previousIndexSum;
+			//Debug.Log ("relativeI: " + relativeI);
+			//Debug.Log ("allTriangles[" + meshNum + "][" + i + "].Length: " + allTriangles[meshNum][i].Length);
+			if (relativeI < allTriangles[meshNum][i].Length) {
+				meshI = meshNum;
+				submeshI = i;
+				triangleI = relativeI;
+				return;
+			}
+			previousIndexSum += allTriangles[meshNum][i].Length;
+		}
+		meshI = -1;
+		submeshI = -1;
+		triangleI = -1;
     }
 	
     public void OnMouseDown() {
         isRotating = true;
         dragStartPosition = Input.mousePosition;
 
-        Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-        RaycastHit rayHit;
-        if (Physics.Raycast(ray, out rayHit) && rayHit.triangleIndex != -1 && Input.GetKey("left ctrl")) {
-            int meshI;
-            int submeshI;
-            int triangleI;
-            getMeshISubmeshITriangleI(rayHit.triangleIndex * 3, out meshI, out submeshI, out triangleI);
-            
-            allTriangles[meshI][submeshI][triangleI + 0] = 0;
-            allTriangles[meshI][submeshI][triangleI + 1] = 0;
-            allTriangles[meshI][submeshI][triangleI + 2] = 0;
+		if (Input.GetKey("left ctrl")) {
+			Ray ray = Camera.main.ScreenPointToRay (Input.mousePosition);
+			RaycastHit rayHit;
+			if (Physics.Raycast (ray, out rayHit) && rayHit.triangleIndex != -1) {
+				int meshI;
+				int submeshI;
+				int triangleI;
+				getMeshISubmeshITriangleI(rayHit, out meshI, out submeshI, out triangleI);
+	            
+				allTriangles[meshI][submeshI][triangleI + 0] = 0;
+				allTriangles[meshI][submeshI][triangleI + 1] = 0;
+				allTriangles[meshI][submeshI][triangleI + 2] = 0;
 
-            meshes[meshI].SetTriangles(allTriangles[meshI][submeshI], submeshI);
-            colliders[meshI].sharedMesh = null;
-            colliders[meshI].sharedMesh = meshes[meshI];
-        }
+				meshes [meshI].SetTriangles (allTriangles [meshI] [submeshI], submeshI);
+				colliders [meshI].sharedMesh = null;
+				colliders [meshI].sharedMesh = meshes [meshI];
+			}
+		}
     }
 
     public void OnMouseDrag() {

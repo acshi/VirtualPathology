@@ -67,4 +67,6 @@ Shader "Transparent" {
 			}
 		ENDCG
 	}
+
+	FallBack "Mobile/Diffuse"
 }
