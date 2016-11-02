@@ -3,7 +3,7 @@ using System.IO;
 using System;
 
 public class buildMesh : MonoBehaviour {
-    public string ImageLayerDirectory = "human_kidney_png";
+    public string ImageLayerDirectory = "mouse_kidney_png";
 
     public int cubeCount = 4; // number of cube layers. 1 would be to have just the outermost layer
     public int cubeSeparation = 3; // number of layers between cube layers

@@ -6,6 +6,18 @@ Library/
 
 # Too large for Git!
 Assets/StreamingAssets/
+Assets/OVR/
+Assets/Plugins/
+Assets/SpaceNavigator/
+Assets/UnityVS
+vp2_Data/
+
+LICENSE.txt
+
+*.exe
+*.meta
+OculusUtilities/
+vp_Data/
 
 # ===================================== #
 # Visual Studio / MonoDevelop generated #
