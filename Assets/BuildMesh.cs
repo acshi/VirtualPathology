@@ -61,6 +61,7 @@ public class BuildMesh : MonoBehaviour {
         // Number of cubes to make in each dimension: x, y, z
         cubeCounts = new int[] { layerHeight / subcubeSize, (int)Math.Ceiling(yAspectRatio * layerNumber / subcubeSize), layerWidth / subcubeSize };
 
+		Debug.Log (cubeCounts[0] + " " + cubeCounts[1] + " " + cubeCounts[2]);
         int totalCubeCount = cubeCounts[0] * cubeCounts[1] * cubeCounts[2];
 
         // Each mesh is limited to 65536 vertices. How many meshes are needed to cover all vertices?
@@ -166,10 +167,12 @@ public class BuildMesh : MonoBehaviour {
             }
 
             // remove old triangles before changing vertices
-            for (int i = 0; i < mesh.subMeshCount; i++) {
+            /*
+			for (int i = 0; i < mesh.subMeshCount; i++) {
                 mesh.SetTriangles(new int[0], i);
-            }
+            }*/
 
+			Debug.Log ("CubeI: " + cubeI);
             mesh.vertices = vertices;
             mesh.uv = uvs;
 
@@ -456,10 +459,21 @@ public class BuildMesh : MonoBehaviour {
 				int submeshI;
 				int triangleI;
 				getMeshISubmeshITriangleI(rayHit, out meshI, out submeshI, out triangleI);
-	            
-				allTriangles[meshI][submeshI][triangleI + 0] = 0;
-				allTriangles[meshI][submeshI][triangleI + 1] = 0;
-				allTriangles[meshI][submeshI][triangleI + 2] = 0;
+
+				int vert1 = allTriangles [meshI] [submeshI] [triangleI + 0];
+				int vert2 = allTriangles [meshI] [submeshI] [triangleI + 1];
+				int vert3 = allTriangles [meshI] [submeshI] [triangleI + 2];
+				int cubeIndex = Math.Min (vert1, Math.Min (vert2, vert3)) / 24;
+				Vector3[] vertices = meshes[meshI].vertices;
+
+				for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+					vertices[i] = Vector3.zero;
+				}
+				//allTriangles[meshI][submeshI][triangleI + 0] = 0;
+				//allTriangles[meshI][submeshI][triangleI + 1] = 0;
+				//allTriangles[meshI][submeshI][triangleI + 2] = 0;
+
+				meshes[meshI].vertices = vertices;
 
 				meshes[meshI].SetTriangles(allTriangles[meshI][submeshI], submeshI);
 				colliders[meshI].sharedMesh = null;
