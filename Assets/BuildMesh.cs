@@ -2,6 +2,8 @@ using UnityEngine;
 using System.IO;
 using System;
 using System.Collections.Generic;
+using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 public class BuildMesh : MonoBehaviour {
     public string ImageLayerDirectory = "human_kidney_png";
@@ -44,6 +46,16 @@ public class BuildMesh : MonoBehaviour {
     float[] zLayersMinMax = new float[] { 0, 1 };
     //Vector3 positiveAxisZoom; // increase to view inner layers on the + side
     //Vector3 negativeAxisZoom; // for - side.
+
+    // UI Elements
+    public Toggle transferFunctionToggle;
+    public Slider transparencyScalarSlider;
+    public Slider contrastSlider;
+
+    // Shader properties
+    bool transferFunctionEnabled = true;
+    float transparencyScalar = 0.8f;
+    float contrast = 1.0f;
 
     void makeMeshCubes(float xl, float yl, float zl) {
         // Number of cubes to make in each dimension: x, y, z
@@ -248,10 +260,10 @@ public class BuildMesh : MonoBehaviour {
 		} else {
 			path = ImageLayerDirectory;
 		}
-
-		//debugging
+        
 		if (!Directory.Exists(path)) {
-			Debug.Log ("Directory does not exist");
+			Debug.Log("Directory does not exist");
+            return;
 		}
 
         string[] files = Directory.GetFiles(path, "*.png");
@@ -393,14 +405,15 @@ public class BuildMesh : MonoBehaviour {
 
         setupTextures();
         updateMaterials();
+        updateShaderProperties();
     }
 
 	// Doesn't deal with multiple meshes. Broken!
 	void getMeshISubmeshITriangleI(RaycastHit rayhit, out int meshI, out int submeshI, out int triangleI) {
 		int globalTriangleI = rayhit.triangleIndex * 3;
 		int previousIndexSum = 0;
-		Debug.Log("globalTriangleI: " + globalTriangleI);
-		Debug.Log("allTriangles.Length: " + allTriangles.Length);
+		//Debug.Log("globalTriangleI: " + globalTriangleI);
+		//Debug.Log("allTriangles.Length: " + allTriangles.Length);
 		int meshNum = Int32.Parse(rayhit.collider.name.Substring("mesh".Length));
 		for (int i = 0; i < allTriangles[meshNum].Length; i++) {
 			int relativeI = globalTriangleI - previousIndexSum;
@@ -418,15 +431,27 @@ public class BuildMesh : MonoBehaviour {
 		submeshI = -1;
 		triangleI = -1;
     }
-	
+
+    bool mouseOverUI() {
+        List<RaycastResult> raycastResults = new List<RaycastResult>();
+        PointerEventData eventData = new PointerEventData(EventSystem.current);
+        eventData.position = Input.mousePosition;
+        EventSystem.current.RaycastAll(eventData, raycastResults);
+        return raycastResults.Count > 0;
+    }
+
     public void OnMouseDown() {
+        if (mouseOverUI()) {
+            return;
+        }
+
         isRotating = true;
         dragStartPosition = Input.mousePosition;
-
+        
 		if (Input.GetKey("left ctrl")) {
-			Ray ray = Camera.main.ScreenPointToRay (Input.mousePosition);
+			Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
 			RaycastHit rayHit;
-			if (Physics.Raycast (ray, out rayHit) && rayHit.triangleIndex != -1) {
+			if (Physics.Raycast(ray, out rayHit) && rayHit.triangleIndex != -1) {
 				int meshI;
 				int submeshI;
 				int triangleI;
@@ -436,9 +461,9 @@ public class BuildMesh : MonoBehaviour {
 				allTriangles[meshI][submeshI][triangleI + 1] = 0;
 				allTriangles[meshI][submeshI][triangleI + 2] = 0;
 
-				meshes [meshI].SetTriangles (allTriangles [meshI] [submeshI], submeshI);
-				colliders [meshI].sharedMesh = null;
-				colliders [meshI].sharedMesh = meshes [meshI];
+				meshes[meshI].SetTriangles(allTriangles[meshI][submeshI], submeshI);
+				colliders[meshI].sharedMesh = null;
+				colliders[meshI].sharedMesh = meshes[meshI];
 			}
 		}
     }
@@ -459,6 +484,44 @@ public class BuildMesh : MonoBehaviour {
         isRotating = false;
     }
 
+    public void setTransferFunctionEnabled(bool enabled) {
+        transferFunctionEnabled = enabled;
+        updateShaderProperties();
+    }
+
+    public void setTransparencyScalar(float transparency) {
+        transparencyScalar = transparency;
+        updateShaderProperties();
+    }
+
+    public void setContrast(float value) {
+        contrast = value;
+        updateShaderProperties();
+    }
+
+    public void resetAll() {
+        for (int meshI = 0; meshI < meshes.Length; meshI++) {
+            gameObjects[meshI].transform.rotation = new Quaternion();
+        }
+
+        transferFunctionToggle.isOn = true;
+        transparencyScalarSlider.value = 0.5f;
+        contrastSlider.value = 1.0f;
+
+        updateMaterials();
+    }
+
+    public void updateShaderProperties() {
+        for (int meshI = 0; meshI < meshes.Length; meshI++) {
+            Material[] materials = renderers[meshI].materials;
+            for (int matI = 0; matI < materials.Length; matI++) {
+                materials[matI].SetInt("_UseTransferFunction", transferFunctionEnabled ? 1 : 0);
+                materials[matI].SetFloat("_TransparencyScalar", transparencyScalar);
+                materials[matI].SetFloat("_Contrast", contrast);
+            }
+        }
+    }
+
     bool floatEquals(float a, float b) {
         float epsilon = 1e-5f;
         return Math.Abs(a - b) < epsilon;
@@ -477,7 +540,6 @@ public class BuildMesh : MonoBehaviour {
 
 	// Update is called once per frame
 	void Update () {
-        
         float scrollTicks = -Input.mouseScrollDelta.y;
         if (Math.Abs(scrollTicks) > 0) {
             Vector3 viewNormal = getViewNormal();
