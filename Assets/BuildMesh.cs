@@ -49,7 +49,9 @@ public class BuildMesh : MonoBehaviour {
 
     // UI Elements
     public Toggle transferFunctionToggle;
+    public Text transparencyText;
     public Slider transparencyScalarSlider;
+    public Text contrastText;
     public Slider contrastSlider;
 
     // Shader properties
@@ -415,7 +417,7 @@ public class BuildMesh : MonoBehaviour {
 		int previousIndexSum = 0;
 		//Debug.Log("globalTriangleI: " + globalTriangleI);
 		//Debug.Log("allTriangles.Length: " + allTriangles.Length);
-		int meshNum = Int32.Parse(rayhit.collider.name.Substring("mesh".Length));
+		int meshNum = int.Parse(rayhit.collider.name.Substring("mesh".Length));
 		for (int i = 0; i < allTriangles[meshNum].Length; i++) {
 			int relativeI = globalTriangleI - previousIndexSum;
 			//Debug.Log ("relativeI: " + relativeI);
@@ -442,6 +444,11 @@ public class BuildMesh : MonoBehaviour {
     }
 
     public void OnMouseDown() {
+        // If the allTriangles array has been mangled by a code reload, recreate all the missing arrays
+        if (allTriangles == null || allTriangles[0] == null) {
+            Recreate();
+        }
+
         if (mouseOverUI()) {
             return;
         }
@@ -503,11 +510,13 @@ public class BuildMesh : MonoBehaviour {
 
     public void setTransparencyScalar(float transparency) {
         transparencyScalar = transparency;
+        transparencyText.text = "Transparency: " + transparency.ToString("F1");
         updateShaderProperties();
     }
 
     public void setContrast(float value) {
         contrast = value;
+        contrastText.text = "Contrast: " + contrast.ToString("F1");
         updateShaderProperties();
     }
 
