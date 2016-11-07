@@ -25,17 +25,29 @@ public class triggerScript : MonoBehaviour {
 		} else {
 			positionDifference = GameObject.Find ("mesh0").transform.position - this.transform.position;
 		}
+			
 
 		if (device.GetPressDown(SteamVR_Controller.ButtonMask.Touchpad)) {
-			if (device.GetAxis (EVRButtonId.k_EButton_SteamVR_Touchpad).y < 0) {
-				Debug.Log ("bottom");
-				GameObject.Find ("mesh0").transform.localScale -= increment;
+			Vector2 coords = device.GetAxis (EVRButtonId.k_EButton_SteamVR_Touchpad);
+			//if zoom
+			if (coords.x > -.2f && coords.x < .2f) {
+				if (coords.y < 0) {
+					Debug.Log ("bottom");
+					GameObject.Find ("mesh0").transform.localScale -= increment;
+				} else {
+					Debug.Log ("top");
+					GameObject.Find ("mesh0").transform.localScale += increment;
+				}
 			} else {
-				Debug.Log ("top");
-				GameObject.Find ("mesh0").transform.localScale += increment;
+				if (coords.x < 0) {
+					Debug.Log ("left");
+					GameObject.Find ("mesh0").transform.Rotate(0, 10, 0);
+				} else {
+					Debug.Log ("right");
+					GameObject.Find ("mesh0").transform.Rotate(0, -10, 0);
+				}
+
 			}
-
-
 		}
 	}
 
