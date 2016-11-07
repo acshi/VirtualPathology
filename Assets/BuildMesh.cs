@@ -354,6 +354,7 @@ public class BuildMesh : MonoBehaviour {
     void updateMaterials() {
 		// Camera direction in the local space of the mesh
 		Vector3 cameraDirection = gameObjects[0].transform.InverseTransformDirection(Camera.main.transform.forward);
+		// Debug.Log("cameraDirection: " + cameraDirection);
 		Vector3 centerNormal = getViewNormal(); // normal of plane in center of view
 
         for (int meshI = 0; meshI < meshes.Length; meshI++) {
@@ -551,7 +552,7 @@ public class BuildMesh : MonoBehaviour {
         Vector3 hitSurfaceNormal = rayHit.transform.InverseTransformDirection(rayHit.normal);
         return hitSurfaceNormal;
     }
-
+		
 	// Update is called once per frame
 	void Update () {
         float scrollTicks = -Input.mouseScrollDelta.y;
@@ -580,5 +581,6 @@ public class BuildMesh : MonoBehaviour {
 
             Recreate();
         }
+		updateMaterials();
     }
 }
