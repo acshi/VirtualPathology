@@ -31,6 +31,7 @@ public class BuildMesh : MonoBehaviour {
 
     GameObject[] gameObjects;
     Mesh[] meshes;
+	Rigidbody[] rigidbodies;
     MeshRenderer[] renderers;
     MeshCollider[] colliders;
     int[][][] allTriangles; // [meshIndex][subMeshIndex][triangleIndex]
@@ -75,6 +76,7 @@ public class BuildMesh : MonoBehaviour {
             allTriangles = new int[meshCount][][];
             gameObjects = new GameObject[meshCount];
             meshes = new Mesh[meshCount];
+			rigidbodies = new Rigidbody[meshCount];
             renderers = new MeshRenderer[meshCount];
             colliders = new MeshCollider[meshCount];
         }
@@ -98,10 +100,12 @@ public class BuildMesh : MonoBehaviour {
                     meshes[meshI] = mesh;
 
                     renderers[meshI] = obj.GetComponent<MeshRenderer>();
+					rigidbodies[meshI] = obj.GetComponent<Rigidbody>();
                     collider = obj.GetComponent<MeshCollider>();
                     colliders[meshI] = collider;
                 } else {
                     obj = new GameObject("mesh" + meshI);
+					obj.transform.parent = gameObject.transform;
                     gameObjects[meshI] = obj;
                     SubmeshEvents submeshEvents = obj.AddComponent<SubmeshEvents>();
                     submeshEvents.buildMesh = this;
@@ -111,19 +115,17 @@ public class BuildMesh : MonoBehaviour {
                     meshes[meshI] = mesh;
 
                     renderers[meshI] = obj.AddComponent<MeshRenderer>();
+
+					rigidbodies[meshI] = obj.AddComponent<Rigidbody>();
+					rigidbodies[meshI].useGravity = false;
+
                     collider = obj.AddComponent<MeshCollider>();
+					collider.convex = true;
                     colliders[meshI] = collider;
                 }
             } else {
                 mesh = meshes[meshI];
                 collider = colliders[meshI];
-            }
-
-            // Keep rotation uniform across all meshes
-            if (meshI == 0) {
-                originalRotation = gameObjects[0].transform.rotation;
-            } else {
-                gameObjects[meshI].transform.rotation = originalRotation;
             }
 
             mesh.subMeshCount = meshTextureCount;
@@ -490,9 +492,7 @@ public class BuildMesh : MonoBehaviour {
     public void OnMouseDrag() {
         if (isRotating) {
             Vector3 change = (Input.mousePosition - dragStartPosition) * rotationSensitivity;
-            for (int meshI = 0; meshI < meshes.Length; meshI++) {
-                gameObjects[meshI].transform.Rotate(change.y, -change.x, 0, Space.World);
-            }
+			gameObject.transform.Rotate(change.y, -change.x, 0, Space.World);
             updateMaterials();
 
             dragStartPosition = Input.mousePosition;
@@ -558,7 +558,7 @@ public class BuildMesh : MonoBehaviour {
         Vector3 hitSurfaceNormal = rayHit.transform.InverseTransformDirection(rayHit.normal);
         return hitSurfaceNormal;
     }
-
+		
 	// Update is called once per frame
 	void Update () {
         float scrollTicks = -Input.mouseScrollDelta.y;
@@ -587,5 +587,6 @@ public class BuildMesh : MonoBehaviour {
 
             Recreate();
         }
+		updateMaterials();
     }
 }
