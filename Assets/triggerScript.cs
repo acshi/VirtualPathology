@@ -1,12 +1,15 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
+using Valve.VR;
+
 
 public class triggerScript : MonoBehaviour {
 
 	private SteamVR_TrackedObject trackedObject;
 
 	private Vector3 positionDifference;
+	private Vector3 increment = new Vector3 (.1f, .1f, .1f);
 
 	// Use this for initialization
 	void Awake () {
@@ -21,6 +24,18 @@ public class triggerScript : MonoBehaviour {
 			GameObject.Find ("mesh0").transform.position = this.transform.position + positionDifference;
 		} else {
 			positionDifference = GameObject.Find ("mesh0").transform.position - this.transform.position;
+		}
+
+		if (device.GetPressDown(SteamVR_Controller.ButtonMask.Touchpad)) {
+			if (device.GetAxis (EVRButtonId.k_EButton_SteamVR_Touchpad).y < 0) {
+				Debug.Log ("bottom");
+				GameObject.Find ("mesh0").transform.localScale -= increment;
+			} else {
+				Debug.Log ("top");
+				GameObject.Find ("mesh0").transform.localScale += increment;
+			}
+
+
 		}
 	}
 
