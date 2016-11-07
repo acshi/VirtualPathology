@@ -6,6 +6,8 @@ using Valve.VR;
 
 public class triggerScript : MonoBehaviour {
 
+	public GameObject procedural;
+
 	private SteamVR_TrackedObject trackedObject;
 
 	private Vector3 positionDifference;
@@ -20,10 +22,10 @@ public class triggerScript : MonoBehaviour {
 	void FixedUpdate () {
 		SteamVR_Controller.Device device = SteamVR_Controller.Input ((int)trackedObject.index);
 		if (device.GetTouch (SteamVR_Controller.ButtonMask.Trigger)) {
-			Debug.Log ("got press");
-			GameObject.Find ("mesh0").transform.position = this.transform.position + positionDifference;
+			Debug.Log("got press");
+			procedural.transform.position = this.transform.position + positionDifference;
 		} else {
-			positionDifference = GameObject.Find ("mesh0").transform.position - this.transform.position;
+			positionDifference = procedural.transform.position - this.transform.position;
 		}
 			
 
@@ -33,18 +35,18 @@ public class triggerScript : MonoBehaviour {
 			if (coords.x > -.2f && coords.x < .2f) {
 				if (coords.y < 0) {
 					Debug.Log ("bottom");
-					GameObject.Find ("mesh0").transform.localScale -= increment;
+					procedural.transform.localScale -= increment;
 				} else {
 					Debug.Log ("top");
-					GameObject.Find ("mesh0").transform.localScale += increment;
+					procedural.transform.localScale += increment;
 				}
 			} else {
 				if (coords.x < 0) {
 					Debug.Log ("left");
-					GameObject.Find ("mesh0").transform.Rotate(0, 10, 0);
+					procedural.transform.Rotate(0, 10, 0);
 				} else {
 					Debug.Log ("right");
-					GameObject.Find ("mesh0").transform.Rotate(0, -10, 0);
+					procedural.transform.Rotate(0, -10, 0);
 				}
 
 			}
