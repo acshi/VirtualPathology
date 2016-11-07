@@ -354,7 +354,6 @@ public class BuildMesh : MonoBehaviour {
     void updateMaterials() {
 		// Camera direction in the local space of the mesh
 		Vector3 cameraDirection = gameObjects[0].transform.InverseTransformDirection(Camera.main.transform.forward);
-		Vector3 centerNormal = getViewNormal(); // normal of plane in center of view
 
         for (int meshI = 0; meshI < meshes.Length; meshI++) {
             MeshRenderer meshRend = renderers[meshI];
@@ -362,13 +361,12 @@ public class BuildMesh : MonoBehaviour {
             int submeshI = 0;
             // loop x, y, z
             float[] cameraDirXyz = new float[3] {cameraDirection.x, cameraDirection.y, cameraDirection.z };
-			float[] centerNXyz = new float[3] { centerNormal.x, centerNormal.y, centerNormal.z };
             for (int i = 0; i < 3; i++) {
                 Vector3 planeDirection = new Vector3(i == 0 ? 1 : 0, i == 1 ? 1 : 0, i == 2 ? 1 : 0);
 
-				float absDir = Math.Abs(centerNXyz[i]);
-				float otherAbsDir1 = Math.Abs(centerNXyz[(i + 1) % 3]);
-				float otherAbsDir2 = Math.Abs(centerNXyz[(i + 2) % 3]);
+				float absDir = Math.Abs(cameraDirXyz[i]);
+				float otherAbsDir1 = Math.Abs(cameraDirXyz[(i + 1) % 3]);
+				float otherAbsDir2 = Math.Abs(cameraDirXyz[(i + 2) % 3]);
 
                 bool notMain = absDir < otherAbsDir1 || absDir < otherAbsDir2;
 
