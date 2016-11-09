@@ -13,14 +13,16 @@ public class triggerScript : MonoBehaviour {
 	private Vector3 positionDifference;
 	private Vector3 increment = new Vector3 (.1f, .1f, .1f);
 
+	private SteamVR_Controller.Device device;
+
 	// Use this for initialization
 	void Awake () {
 		trackedObject = GetComponent<SteamVR_TrackedObject> ();
+		device = SteamVR_Controller.Input ((int)trackedObject.index);
 	}
 	
 	// Update is called once per frame
 	void FixedUpdate () {
-		SteamVR_Controller.Device device = SteamVR_Controller.Input ((int)trackedObject.index);
 		if (device.GetTouch (SteamVR_Controller.ButtonMask.Trigger)) {
 			Debug.Log("got press");
 			procedural.transform.position = this.transform.position + positionDifference;

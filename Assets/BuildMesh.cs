@@ -438,6 +438,32 @@ public class BuildMesh : MonoBehaviour {
 		triangleI = -1;
     }
 
+	public void removeCubeFromRay(RaycastHit rayHit) {
+		int meshI;
+		int submeshI;
+		int triangleI;
+		getMeshISubmeshITriangleI(rayHit, out meshI, out submeshI, out triangleI);
+
+		int vert1 = allTriangles [meshI] [submeshI] [triangleI + 0];
+		int vert2 = allTriangles [meshI] [submeshI] [triangleI + 1];
+		int vert3 = allTriangles [meshI] [submeshI] [triangleI + 2];
+		int cubeIndex = Math.Min (vert1, Math.Min (vert2, vert3)) / 24;
+		Vector3[] vertices = meshes[meshI].vertices;
+
+		for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+			vertices[i] = Vector3.zero;
+		}
+		//allTriangles[meshI][submeshI][triangleI + 0] = 0;
+		//allTriangles[meshI][submeshI][triangleI + 1] = 0;
+		//allTriangles[meshI][submeshI][triangleI + 2] = 0;
+
+		meshes[meshI].vertices = vertices;
+
+		meshes[meshI].SetTriangles(allTriangles[meshI][submeshI], submeshI);
+		colliders[meshI].sharedMesh = null;
+		colliders[meshI].sharedMesh = meshes[meshI];
+	}
+
     bool mouseOverUI() {
         List<RaycastResult> raycastResults = new List<RaycastResult>();
         PointerEventData eventData = new PointerEventData(EventSystem.current);
@@ -463,29 +489,7 @@ public class BuildMesh : MonoBehaviour {
 			Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
 			RaycastHit rayHit;
 			if (Physics.Raycast(ray, out rayHit) && rayHit.triangleIndex != -1) {
-				int meshI;
-				int submeshI;
-				int triangleI;
-				getMeshISubmeshITriangleI(rayHit, out meshI, out submeshI, out triangleI);
-
-				int vert1 = allTriangles [meshI] [submeshI] [triangleI + 0];
-				int vert2 = allTriangles [meshI] [submeshI] [triangleI + 1];
-				int vert3 = allTriangles [meshI] [submeshI] [triangleI + 2];
-				int cubeIndex = Math.Min (vert1, Math.Min (vert2, vert3)) / 24;
-				Vector3[] vertices = meshes[meshI].vertices;
-
-				for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
-					vertices[i] = Vector3.zero;
-				}
-				//allTriangles[meshI][submeshI][triangleI + 0] = 0;
-				//allTriangles[meshI][submeshI][triangleI + 1] = 0;
-				//allTriangles[meshI][submeshI][triangleI + 2] = 0;
-
-				meshes[meshI].vertices = vertices;
-
-				meshes[meshI].SetTriangles(allTriangles[meshI][submeshI], submeshI);
-				colliders[meshI].sharedMesh = null;
-				colliders[meshI].sharedMesh = meshes[meshI];
+				removeCubeFromRay(rayHit);
 			}
 		}
     }
