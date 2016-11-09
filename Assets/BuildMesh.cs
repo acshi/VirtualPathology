@@ -42,6 +42,9 @@ public class BuildMesh : MonoBehaviour {
     bool isRotating = false;
     Vector3 dragStartPosition;
 
+    bool shouldSnap = true;
+    Quaternion snappingRotation = new Quaternion();
+
     float[] xLayersMinMax = new float[] { 0, 1 };
     float[] yLayersMinMax = new float[] { 0, 1 };
     float[] zLayersMinMax = new float[] { 0, 1 };
@@ -499,6 +502,13 @@ public class BuildMesh : MonoBehaviour {
 
     public void OnMouseUp() {
         isRotating = false;
+
+        // Find rotation to snap to
+        Vector3 rot = gameObject.transform.rotation.eulerAngles;
+        rot.x = (float)Math.Round(rot.x / 90f) * 90;
+        rot.y = (float)Math.Round(rot.y / 90f) * 90;
+        rot.z = (float)Math.Round(rot.z / 90f) * 90;
+        snappingRotation = Quaternion.Euler(rot);
     }
 
     public void setTransferFunctionEnabled(bool enabled) {
@@ -557,6 +567,10 @@ public class BuildMesh : MonoBehaviour {
 		
 	// Update is called once per frame
 	void Update () {
+        if (shouldSnap && !isRotating) {
+            gameObject.transform.rotation = Quaternion.Slerp(gameObject.transform.rotation, snappingRotation, Time.deltaTime * 4);
+        }
+
         float scrollTicks = -Input.mouseScrollDelta.y;
         if (Math.Abs(scrollTicks) > 0) {
             Vector3 viewNormal = getViewNormal();
