@@ -81,8 +81,6 @@ public class BuildMesh : MonoBehaviour {
             colliders = new MeshCollider[meshCount];
         }
 
-        Quaternion originalRotation = new Quaternion();
-
         for (int meshI = 0; meshI < meshCount; meshI++) {
             int zInMesh = Math.Min(zPerMesh, cubeCounts[2] - meshI * zPerMesh); // so last mesh takes remainder
             int meshTextureCount = cubeCounts[0] + cubeCounts[1] + zInMesh;
@@ -521,9 +519,7 @@ public class BuildMesh : MonoBehaviour {
     }
 
     public void resetAll() {
-        for (int meshI = 0; meshI < meshes.Length; meshI++) {
-            gameObjects[meshI].transform.rotation = new Quaternion();
-        }
+        gameObject.transform.rotation = new Quaternion();
 
         transferFunctionToggle.isOn = true;
         transparencyScalarSlider.value = 0.5f;
@@ -538,7 +534,7 @@ public class BuildMesh : MonoBehaviour {
             for (int matI = 0; matI < materials.Length; matI++) {
                 materials[matI].SetInt("_UseTransferFunction", transferFunctionEnabled ? 1 : 0);
                 materials[matI].SetFloat("_TransparencyScalar", transparencyScalar);
-                materials[matI].SetFloat("_Contrast", contrast);
+                materials[matI].SetFloat("_Contrast", contrast * 3);
             }
         }
     }
