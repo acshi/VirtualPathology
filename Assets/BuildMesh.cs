@@ -119,9 +119,9 @@ public class BuildMesh : MonoBehaviour {
 
 					rigidbodies[meshI] = obj.AddComponent<Rigidbody>();
 					rigidbodies[meshI].useGravity = false;
+                    rigidbodies[meshI].isKinematic = true;
 
                     collider = obj.AddComponent<MeshCollider>();
-					collider.convex = true;
                     colliders[meshI] = collider;
                 }
             } else {
