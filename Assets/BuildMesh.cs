@@ -414,17 +414,12 @@ public class BuildMesh : MonoBehaviour {
         updateShaderProperties();
     }
 
-	// Doesn't deal with multiple meshes. Broken!
-	void getMeshISubmeshITriangleI(RaycastHit rayhit, out int meshI, out int submeshI, out int triangleI) {
-		int globalTriangleI = rayhit.triangleIndex * 3;
+	void getMeshISubmeshITriangleI(RaycastHit rayHit, out int meshI, out int submeshI, out int triangleI) {
+		int globalTriangleI = rayHit.triangleIndex * 3;
 		int previousIndexSum = 0;
-		//Debug.Log("globalTriangleI: " + globalTriangleI);
-		//Debug.Log("allTriangles.Length: " + allTriangles.Length);
-		int meshNum = int.Parse(rayhit.collider.name.Substring("mesh".Length));
+		int meshNum = int.Parse(rayHit.collider.name.Substring("mesh".Length));
 		for (int i = 0; i < allTriangles[meshNum].Length; i++) {
 			int relativeI = globalTriangleI - previousIndexSum;
-			//Debug.Log ("relativeI: " + relativeI);
-			//Debug.Log ("allTriangles[" + meshNum + "][" + i + "].Length: " + allTriangles[meshNum][i].Length);
 			if (relativeI < allTriangles[meshNum][i].Length) {
 				meshI = meshNum;
 				submeshI = i;
@@ -439,6 +434,9 @@ public class BuildMesh : MonoBehaviour {
     }
 
 	public void removeCubeFromRay(RaycastHit rayHit) {
+		if (rayHit.triangleIndex == -1)
+			Debug.Log("BuildMesh.cs:removeCubeFromRay() triangleIndex is -1!");
+			return;
 		int meshI;
 		int submeshI;
 		int triangleI;
