@@ -34,22 +34,27 @@ public class BuildMesh : MonoBehaviour {
 	Rigidbody[] rigidbodies;
     MeshRenderer[] renderers;
     MeshCollider[] colliders;
+    Vector3[][] allVertices; // [meshIndex][vertexIndex]
+    Vector3[][] allOriginalVertices;
     int[][][] allTriangles; // [meshIndex][subMeshIndex][triangleIndex]
 
     List<Texture2D> cachedTextures = new List<Texture2D>();
     List<Plane> cachedTexturePlanes = new List<Plane>();
+
+    // To minimize changes in updateMaterials
+    int materialsMainAxis = -1; // xyz: 0, 1, 2
+    int materialsAxisSign = -1; // +-: 0, 1
     
     bool isRotating = false;
     Vector3 dragStartPosition;
 
-    bool shouldSnap = true;
+    public bool shouldSnap = true;
     Quaternion snappingRotation = new Quaternion();
 
-    float[] xLayersMinMax = new float[] { 0, 1 };
-    float[] yLayersMinMax = new float[] { 0, 1 };
-    float[] zLayersMinMax = new float[] { 0, 1 };
+    int[,] rmLayersXyz = new int[3,2]; // [xyz index, minMax index]
     //Vector3 positiveAxisZoom; // increase to view inner layers on the + side
     //Vector3 negativeAxisZoom; // for - side.
+    float sumDeltaScrollTicks = 0;
 
     // UI Elements
     public Toggle transferFunctionToggle;
@@ -57,11 +62,14 @@ public class BuildMesh : MonoBehaviour {
     public Slider transparencyScalarSlider;
     public Text contrastText;
     public Slider contrastSlider;
+    public Text qualityText;
+    public Slider qualitySlider;
 
     // Shader properties
     bool transferFunctionEnabled = true;
     float transparencyScalar = 0.8f;
     float contrast = 1.0f;
+    int quality = 2;
 
     void makeMeshCubes(float xl, float yl, float zl) {
         // Number of cubes to make in each dimension: x, y, z
@@ -77,6 +85,8 @@ public class BuildMesh : MonoBehaviour {
 
         if (allTriangles == null || allTriangles.Length != meshCount) {
             allTriangles = new int[meshCount][][];
+            allVertices = new Vector3[meshCount][];
+            allOriginalVertices = new Vector3[meshCount][];
             gameObjects = new GameObject[meshCount];
             meshes = new Mesh[meshCount];
 			rigidbodies = new Rigidbody[meshCount];
@@ -106,7 +116,11 @@ public class BuildMesh : MonoBehaviour {
                     colliders[meshI] = collider;
                 } else {
                     obj = new GameObject("mesh" + meshI);
-					obj.transform.parent = gameObject.transform;
+                    // The child transform will implicitly take the parent one into account
+                    // So for the child to have "zero" rotation, it should be set to the parent rotation
+                    obj.transform.parent = gameObject.transform;
+                    obj.transform.rotation = gameObject.transform.rotation;
+					
                     gameObjects[meshI] = obj;
                     SubmeshEvents submeshEvents = obj.AddComponent<SubmeshEvents>();
                     submeshEvents.buildMesh = this;
@@ -172,12 +186,13 @@ public class BuildMesh : MonoBehaviour {
             }
 
             // remove old triangles before changing vertices
-            /*
 			for (int i = 0; i < mesh.subMeshCount; i++) {
                 mesh.SetTriangles(new int[0], i);
-            }*/
+            }
 
 			Debug.Log ("CubeI: " + cubeI);
+            allVertices[meshI] = vertices;
+            allOriginalVertices[meshI] = (Vector3[])vertices.Clone();
             mesh.vertices = vertices;
             mesh.uv = uvs;
 
@@ -344,21 +359,19 @@ public class BuildMesh : MonoBehaviour {
         }
     }
 
-    /*void setTextures(MeshRenderer rend) {
-        int meshI = 0;
-        // loop x, y, z
-        for (int i = 0; i < 3; i++) {
-            Vector3 planeDirection = new Vector3(i == 0 ? 1 : 0, i == 1 ? 1 : 0, i == 2 ? 1 : 0);
-            for (int j = 0; j < cubeCounts[i]; j++) {
-                rend.materials[meshI].mainTexture = textureForPlane(new Plane(planeDirection, (float)j / (cubeCounts[i] - 1)));
-                meshI++;
-            }
-        }
-    }*/
-
     void updateMaterials() {
 		// Camera direction in the local space of the mesh
-		Vector3 cameraDirection = gameObjects[0].transform.InverseTransformDirection(Camera.main.transform.forward);
+		Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
+
+        int mainAxis;
+        int mainAxisSign;
+        getMainAxisAndSign(cameraDirection, out mainAxis, out mainAxisSign);
+
+        if (materialsMainAxis == mainAxis && materialsAxisSign == mainAxisSign) {
+            return;
+        }
+        materialsMainAxis = mainAxis;
+        materialsAxisSign = mainAxisSign;
 
         for (int meshI = 0; meshI < meshes.Length; meshI++) {
             MeshRenderer meshRend = renderers[meshI];
@@ -368,12 +381,7 @@ public class BuildMesh : MonoBehaviour {
             float[] cameraDirXyz = new float[3] {cameraDirection.x, cameraDirection.y, cameraDirection.z };
             for (int i = 0; i < 3; i++) {
                 Vector3 planeDirection = new Vector3(i == 0 ? 1 : 0, i == 1 ? 1 : 0, i == 2 ? 1 : 0);
-
-				float absDir = Math.Abs(cameraDirXyz[i]);
-				float otherAbsDir1 = Math.Abs(cameraDirXyz[(i + 1) % 3]);
-				float otherAbsDir2 = Math.Abs(cameraDirXyz[(i + 2) % 3]);
-
-                bool notMain = absDir < otherAbsDir1 || absDir < otherAbsDir2;
+                bool notMain = i != mainAxis;
 
                 int count = cubeCounts[i];
                 // Only pass through those index values for this specific set of z values
@@ -410,7 +418,15 @@ public class BuildMesh : MonoBehaviour {
         makeMeshCubes(scaleFactor * layerWidth, scaleFactor * layerNumber, scaleFactor * layerHeight);
 
         setupTextures();
+
+        // reset back to nothing removed, because the whole mesh has changed
+        rmLayersXyz = new int[3, 2];
+
+        // Force updateMaterials to reset everything
+        materialsMainAxis = -1;
+        materialsAxisSign = -1;
         updateMaterials();
+
         updateShaderProperties();
     }
 
@@ -472,16 +488,15 @@ public class BuildMesh : MonoBehaviour {
 				int vert2 = allTriangles [meshI] [submeshI] [triangleI + 1];
 				int vert3 = allTriangles [meshI] [submeshI] [triangleI + 2];
 				int cubeIndex = Math.Min (vert1, Math.Min (vert2, vert3)) / 24;
-				Vector3[] vertices = meshes[meshI].vertices;
 
 				for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
-					vertices[i] = Vector3.zero;
+					allVertices[meshI][i] = Vector3.zero;
 				}
 				//allTriangles[meshI][submeshI][triangleI + 0] = 0;
 				//allTriangles[meshI][submeshI][triangleI + 1] = 0;
 				//allTriangles[meshI][submeshI][triangleI + 2] = 0;
 
-				meshes[meshI].vertices = vertices;
+				meshes[meshI].vertices = allVertices[meshI];
 
 				meshes[meshI].SetTriangles(allTriangles[meshI][submeshI], submeshI);
 				colliders[meshI].sharedMesh = null;
@@ -528,12 +543,21 @@ public class BuildMesh : MonoBehaviour {
         updateShaderProperties();
     }
 
+    public void setQuality(float q) {
+        quality = (int)q;
+        qualityText.text = "Quality: " + quality;
+        subcubeSize = new int[] { 70, 50, 30, 20 }[quality - 1];
+        Recreate();
+    }
+
     public void resetAll() {
         gameObject.transform.rotation = new Quaternion();
+        snappingRotation = new Quaternion();
 
         transferFunctionToggle.isOn = true;
         transparencyScalarSlider.value = 0.5f;
         contrastSlider.value = 1.0f;
+        qualitySlider.value = 2;
 
         updateMaterials();
     }
@@ -564,38 +588,99 @@ public class BuildMesh : MonoBehaviour {
         Vector3 hitSurfaceNormal = rayHit.transform.InverseTransformDirection(rayHit.normal);
         return hitSurfaceNormal;
     }
+
+    void getMainAxisAndSign(Vector3 direction, out int axis, out int sign) {
+        float absX = Math.Abs(direction.x);
+        float absY = Math.Abs(direction.y);
+        float absZ = Math.Abs(direction.z);
+
+        if (absX > absY && absX > absZ) {
+            axis = 0;
+            sign = direction.x < 0 ? 1 : 0;
+        } else if (absY > absZ) {
+            axis = 1;
+            sign = direction.y < 0 ? 1 : 0;
+        } else {
+            axis = 2;
+            sign = direction.z < 0 ? 1 : 0;
+        }
+    }
+
+    void orthogonalScroll(int layers) {
+        // Camera direction in the local space of the mesh
+        Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
+        
+        int axis;
+        int sign;
+        getMainAxisAndSign(cameraDirection, out axis, out sign);
+        
+        // Keep the end number of layers such that the two ends of the cube do not pass each other, or go beyond the cube
+        int newRmLayers = (int)constrain(rmLayersXyz[axis, sign] + layers, 0, cubeCounts[axis] - 1 - rmLayersXyz[axis, (sign + 1) % 2]);
+        // The number to actually modify now
+        int layerCount = Math.Abs(newRmLayers - rmLayersXyz[axis, sign]);
+
+        if (layerCount == 0) {
+            return;
+        }
+
+        for (int l = 0; l < layerCount; l++) {
+            // We subtract an extra layer here because you when layers is negative
+            // we are actually adding the _next_ layer back, which is not visible
+            // When removing layers, we remove the current visible layer, so the number isn't changed.
+            int deltaL = layers < 0 ? -l - 1 : l;
+            // Cube index is (cubeZI - meshI * zPerMesh) * (cubeCountY * cubeCountX) + cubeYI * cubeCountX + cubeCountX
+            int axis2 = (axis + 1) % 3;
+            int axis3 = (axis + 2) % 3;
+
+            int[] dimIs = new int[3] { 0, 0, 0 };
+            // The dimension index of the layer we are removing
+            bool countFromZero = sign == 0;
+            countFromZero = axis == 0 ? !countFromZero : countFromZero;
+            dimIs[axis] = countFromZero ? (rmLayersXyz[axis, sign] + deltaL) : (cubeCounts[axis] - 1 - rmLayersXyz[axis, sign] - deltaL);
+
+            int dim2Min = rmLayersXyz[axis2, axis2 == 0 ? 1 : 0];
+            int dim2Max = cubeCounts[axis2] - rmLayersXyz[axis2, axis2 == 0 ? 0 : 1];
+            for (dimIs[axis2] = dim2Min; dimIs[axis2] < dim2Max; dimIs[axis2]++) {
+                int dim3Min = rmLayersXyz[axis3, axis3 == 0 ? 1 : 0];
+                int dim3Max = cubeCounts[axis3] - rmLayersXyz[axis3, axis3 == 0 ? 0 : 1];
+                for (dimIs[axis3] = dim3Min; dimIs[axis3] < dim3Max; dimIs[axis3]++) {
+                    int cubeXI = dimIs[0];
+                    int cubeYI = dimIs[1];
+                    int cubeZI = dimIs[2];
+                    int meshI = cubeZI / zPerMesh;
+                    int relativeCubeZI = cubeZI - meshI * zPerMesh;
+                    int cubeIndex = relativeCubeZI * (cubeCounts[1] * cubeCounts[0]) + cubeYI * cubeCounts[0] + cubeXI;
+
+                    for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+                        if (layers > 0) {
+                            allVertices[meshI][i] = Vector3.zero;
+                        } else {
+                            allVertices[meshI][i] = allOriginalVertices[meshI][i];
+                        }
+                    }
+                }
+            }
+        }
+
+        for (int meshI = 0; meshI < meshes.Length; meshI++) {
+            meshes[meshI].vertices = allVertices[meshI];
+        }
+
+        rmLayersXyz[axis, sign] = newRmLayers;
+    }
 		
 	// Update is called once per frame
 	void Update () {
         if (shouldSnap && !isRotating) {
             gameObject.transform.rotation = Quaternion.Slerp(gameObject.transform.rotation, snappingRotation, Time.deltaTime * 4);
         }
-
-        float scrollTicks = -Input.mouseScrollDelta.y;
-        if (Math.Abs(scrollTicks) > 0) {
-            Vector3 viewNormal = getViewNormal();
-
-            if (floatEquals(viewNormal.x, -1)) {
-                xLayersMinMax[1] = constrain(xLayersMinMax[1] + scrollTicks / (layerHeight - 1), 0, 1);
-                xLayersMinMax[0] = Math.Min(xLayersMinMax[0], xLayersMinMax[1]); // Keep at least one layer visible
-            } else if (floatEquals(viewNormal.x, 1)) {
-                xLayersMinMax[0] = constrain(xLayersMinMax[0] - scrollTicks / (layerHeight - 1), 0, 1);
-                xLayersMinMax[1] = Math.Max(xLayersMinMax[1], xLayersMinMax[0]);
-            } else if (floatEquals(viewNormal.y, 1)) {
-                yLayersMinMax[1] = constrain(yLayersMinMax[1] + scrollTicks / (layerNumber - 1), 0, 1);
-                yLayersMinMax[0] = Math.Min(yLayersMinMax[0], yLayersMinMax[1]);
-            } else if (floatEquals(viewNormal.y, -1)) {
-                yLayersMinMax[0] = constrain(yLayersMinMax[0] - scrollTicks / (layerNumber - 1), 0, 1);
-                yLayersMinMax[1] = Math.Max(yLayersMinMax[1], yLayersMinMax[0]);
-            } else if (floatEquals(viewNormal.z, 1)) {
-                zLayersMinMax[1] = constrain(zLayersMinMax[1] + scrollTicks / (layerWidth - 1), 0, 1);
-                zLayersMinMax[0] = Math.Min(zLayersMinMax[0], zLayersMinMax[1]);
-            } else if (floatEquals(viewNormal.z, -1)) {
-                zLayersMinMax[0] = constrain(zLayersMinMax[0] - scrollTicks / (layerWidth - 1), 0, 1);
-                zLayersMinMax[1] = Math.Max(zLayersMinMax[1], zLayersMinMax[0]);
-            }
-
-            Recreate();
+        
+        // Make scrolling slower, but allow the partial ticks to accumulate
+        sumDeltaScrollTicks += -Input.mouseScrollDelta.y / 2;
+        if (Math.Abs(sumDeltaScrollTicks) >= 1) {
+            int ticks = (int)sumDeltaScrollTicks;
+            sumDeltaScrollTicks -= ticks;
+            orthogonalScroll(ticks);
         }
 		updateMaterials();
     }
