@@ -7,7 +7,7 @@ using UnityEngine.UI;
 
 public class BuildMesh : MonoBehaviour {
     public string ImageLayerDirectory = "human_kidney_png";
-	public bool loadFromStreamingAssets = true;
+    public bool loadFromStreamingAssets = true;
 
     public float yAspectRatio = 2.8f;
     public int subcubeSize = 64; // each cube has x, y, and z of this dimension.
@@ -19,19 +19,19 @@ public class BuildMesh : MonoBehaviour {
     int layerHeight; // X
     int layerNumber; // Y
 
-	// Number of cubes in each of x, y, and z axes
+    // Number of cubes in each of x, y, and z axes
     int[] cubeCounts;
 
-	// Each mesh will be a cuboid with full x and y dimensions, but will take a section of the total z
-	// This way each mesh can have less than 65536 vertices.
+    // Each mesh will be a cuboid with full x and y dimensions, but will take a section of the total z
+    // This way each mesh can have less than 65536 vertices.
     int zPerMesh;
 
-	// Used as a reference only to set up the materials of the meshes
+    // Used as a reference only to set up the materials of the meshes
     MeshRenderer baseRenderer;
 
     GameObject[] gameObjects;
     Mesh[] meshes;
-	Rigidbody[] rigidbodies;
+    Rigidbody[] rigidbodies;
     MeshRenderer[] renderers;
     MeshCollider[] colliders;
     Vector3[][] allVertices; // [meshIndex][vertexIndex]
@@ -44,14 +44,14 @@ public class BuildMesh : MonoBehaviour {
     // To minimize changes in updateMaterials
     int materialsMainAxis = -1; // xyz: 0, 1, 2
     int materialsAxisSign = -1; // +-: 0, 1
-    
+
     bool isRotating = false;
     Vector3 dragStartPosition;
 
     public bool shouldSnap = true;
     Quaternion snappingRotation = new Quaternion();
 
-    int[,] rmLayersXyz = new int[3,2]; // [xyz index, minMax index]
+    int[,] rmLayersXyz = new int[3, 2]; // [xyz index, minMax index]
     //Vector3 positiveAxisZoom; // increase to view inner layers on the + side
     //Vector3 negativeAxisZoom; // for - side.
     float sumDeltaScrollTicks = 0;
@@ -75,7 +75,7 @@ public class BuildMesh : MonoBehaviour {
         // Number of cubes to make in each dimension: x, y, z
         cubeCounts = new int[] { layerHeight / subcubeSize, (int)Math.Ceiling(yAspectRatio * layerNumber / subcubeSize), layerWidth / subcubeSize };
 
-		Debug.Log (cubeCounts[0] + " " + cubeCounts[1] + " " + cubeCounts[2]);
+        Debug.Log(cubeCounts[0] + " " + cubeCounts[1] + " " + cubeCounts[2]);
         int totalCubeCount = cubeCounts[0] * cubeCounts[1] * cubeCounts[2];
 
         // Each mesh is limited to 65536 vertices. How many meshes are needed to cover all vertices?
@@ -89,7 +89,7 @@ public class BuildMesh : MonoBehaviour {
             allOriginalVertices = new Vector3[meshCount][];
             gameObjects = new GameObject[meshCount];
             meshes = new Mesh[meshCount];
-			rigidbodies = new Rigidbody[meshCount];
+            rigidbodies = new Rigidbody[meshCount];
             renderers = new MeshRenderer[meshCount];
             colliders = new MeshCollider[meshCount];
         }
@@ -111,7 +111,7 @@ public class BuildMesh : MonoBehaviour {
                     meshes[meshI] = mesh;
 
                     renderers[meshI] = obj.GetComponent<MeshRenderer>();
-					rigidbodies[meshI] = obj.GetComponent<Rigidbody>();
+                    rigidbodies[meshI] = obj.GetComponent<Rigidbody>();
                     collider = obj.GetComponent<MeshCollider>();
                     colliders[meshI] = collider;
                 } else {
@@ -120,7 +120,7 @@ public class BuildMesh : MonoBehaviour {
                     // So for the child to have "zero" rotation, it should be set to the parent rotation
                     obj.transform.parent = gameObject.transform;
                     obj.transform.rotation = gameObject.transform.rotation;
-					
+
                     gameObjects[meshI] = obj;
                     SubmeshEvents submeshEvents = obj.AddComponent<SubmeshEvents>();
                     submeshEvents.buildMesh = this;
@@ -131,8 +131,8 @@ public class BuildMesh : MonoBehaviour {
 
                     renderers[meshI] = obj.AddComponent<MeshRenderer>();
 
-					rigidbodies[meshI] = obj.AddComponent<Rigidbody>();
-					rigidbodies[meshI].useGravity = false;
+                    rigidbodies[meshI] = obj.AddComponent<Rigidbody>();
+                    rigidbodies[meshI].useGravity = false;
                     rigidbodies[meshI].isKinematic = true;
 
                     collider = obj.AddComponent<MeshCollider>();
@@ -186,11 +186,11 @@ public class BuildMesh : MonoBehaviour {
             }
 
             // remove old triangles before changing vertices
-			for (int i = 0; i < mesh.subMeshCount; i++) {
+            for (int i = 0; i < mesh.subMeshCount; i++) {
                 mesh.SetTriangles(new int[0], i);
             }
 
-			Debug.Log ("CubeI: " + cubeI);
+            Debug.Log("CubeI: " + cubeI);
             allVertices[meshI] = vertices;
             allOriginalVertices[meshI] = (Vector3[])vertices.Clone();
             mesh.vertices = vertices;
@@ -277,17 +277,17 @@ public class BuildMesh : MonoBehaviour {
 
     void loadLayerFiles() {
         // The files in the designated folder have the source y-layers
-		string path;
-		if (loadFromStreamingAssets) {
-			path = Path.Combine (Application.streamingAssetsPath, ImageLayerDirectory);
-		} else {
-			path = ImageLayerDirectory;
-		}
-        
-		if (!Directory.Exists(path)) {
-			Debug.Log("Directory does not exist");
+        string path;
+        if (loadFromStreamingAssets) {
+            path = Path.Combine(Application.streamingAssetsPath, ImageLayerDirectory);
+        } else {
+            path = ImageLayerDirectory;
+        }
+
+        if (!Directory.Exists(path)) {
+            Debug.Log("Directory does not exist");
             return;
-		}
+        }
 
         string[] files = Directory.GetFiles(path, "*.png");
         layers = new Texture2D[files.Length];
@@ -349,7 +349,7 @@ public class BuildMesh : MonoBehaviour {
         for (int meshI = 0; meshI < meshes.Length; meshI++) {
             Mesh mesh = meshes[meshI];
             MeshRenderer meshRend = renderers[meshI];
-            
+
             meshRend.materials = new Material[mesh.subMeshCount];
             for (int i = 0; i < meshRend.materials.Length; i++) {
                 meshRend.materials[i] = new Material(baseMaterial);
@@ -360,8 +360,8 @@ public class BuildMesh : MonoBehaviour {
     }
 
     void updateMaterials() {
-		// Camera direction in the local space of the mesh
-		Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
+        // Camera direction in the local space of the mesh
+        Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
 
         int mainAxis;
         int mainAxisSign;
@@ -378,7 +378,7 @@ public class BuildMesh : MonoBehaviour {
 
             int submeshI = 0;
             // loop x, y, z
-            float[] cameraDirXyz = new float[3] {cameraDirection.x, cameraDirection.y, cameraDirection.z };
+            float[] cameraDirXyz = new float[3] { cameraDirection.x, cameraDirection.y, cameraDirection.z };
             for (int i = 0; i < 3; i++) {
                 Vector3 planeDirection = new Vector3(i == 0 ? 1 : 0, i == 1 ? 1 : 0, i == 2 ? 1 : 0);
                 bool notMain = i != mainAxis;
@@ -387,8 +387,8 @@ public class BuildMesh : MonoBehaviour {
                 // Only pass through those index values for this specific set of z values
                 for (int j = (i == 2) ? meshI * zPerMesh : 0; j < count && ((i == 2) ? j < (meshI + 1) * zPerMesh : true); j++) {
                     // Some of these numbers are arbitrary, but the important thing is that the faces
-					// render back to front, and that the main axis faces also render before the other axes
-					int drawIndex = (int)(2000 * -cameraDirXyz[i] * j / count * (i == 0 ? -1 : 1)) + 2000;
+                    // render back to front, and that the main axis faces also render before the other axes
+                    int drawIndex = (int)(2000 * -cameraDirXyz[i] * j / count * (i == 0 ? -1 : 1)) + 2000;
                     meshRend.materials[submeshI].renderQueue = 3000 + drawIndex + (notMain ? 3000 : 0);
                     meshRend.materials[submeshI].mainTexture = textureForPlane(new Plane(planeDirection, (float)j / (count - 1)));
                     submeshI++;
@@ -405,7 +405,7 @@ public class BuildMesh : MonoBehaviour {
         baseRenderer = GetComponent<MeshRenderer>();
 
         Recreate();
-	}
+    }
 
     float constrain(float val, float min, float max) {
         return Math.Min(max, Math.Max(min, val));
@@ -430,50 +430,50 @@ public class BuildMesh : MonoBehaviour {
         updateShaderProperties();
     }
 
-	void getMeshISubmeshITriangleI(RaycastHit rayHit, out int meshI, out int submeshI, out int triangleI) {
-		int globalTriangleI = rayHit.triangleIndex * 3;
-		int previousIndexSum = 0;
-		int meshNum = int.Parse(rayHit.collider.name.Substring("mesh".Length));
-		for (int i = 0; i < allTriangles[meshNum].Length; i++) {
-			int relativeI = globalTriangleI - previousIndexSum;
-			if (relativeI < allTriangles[meshNum][i].Length) {
-				meshI = meshNum;
-				submeshI = i;
-				triangleI = relativeI;
-				return;
-			}
-			previousIndexSum += allTriangles[meshNum][i].Length;
-		}
-		meshI = -1;
-		submeshI = -1;
-		triangleI = -1;
+    void getMeshISubmeshITriangleI(RaycastHit rayHit, out int meshI, out int submeshI, out int triangleI) {
+        int globalTriangleI = rayHit.triangleIndex * 3;
+        int previousIndexSum = 0;
+        int meshNum = int.Parse(rayHit.collider.name.Substring("mesh".Length));
+        for (int i = 0; i < allTriangles[meshNum].Length; i++) {
+            int relativeI = globalTriangleI - previousIndexSum;
+            if (relativeI < allTriangles[meshNum][i].Length) {
+                meshI = meshNum;
+                submeshI = i;
+                triangleI = relativeI;
+                return;
+            }
+            previousIndexSum += allTriangles[meshNum][i].Length;
+        }
+        meshI = -1;
+        submeshI = -1;
+        triangleI = -1;
     }
 
-	public void removeCubeFromRay(RaycastHit rayHit) {
+    public void removeCubeFromRay(RaycastHit rayHit) {
         if (rayHit.triangleIndex == -1) {
             Debug.Log("BuildMesh.cs:removeCubeFromRay() triangleIndex is -1!");
             return;
         }
-		int meshI;
-		int submeshI;
-		int triangleI;
-		getMeshISubmeshITriangleI(rayHit, out meshI, out submeshI, out triangleI);
+        int meshI;
+        int submeshI;
+        int triangleI;
+        getMeshISubmeshITriangleI(rayHit, out meshI, out submeshI, out triangleI);
 
-		int vert1 = allTriangles [meshI] [submeshI] [triangleI + 0];
-		int vert2 = allTriangles [meshI] [submeshI] [triangleI + 1];
-		int vert3 = allTriangles [meshI] [submeshI] [triangleI + 2];
-		int cubeIndex = Math.Min (vert1, Math.Min (vert2, vert3)) / 24;
+        int vert1 = allTriangles[meshI][submeshI][triangleI + 0];
+        int vert2 = allTriangles[meshI][submeshI][triangleI + 1];
+        int vert3 = allTriangles[meshI][submeshI][triangleI + 2];
+        int cubeIndex = Math.Min(vert1, Math.Min(vert2, vert3)) / 24;
 
-		for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
-			allVertices[meshI][i] = Vector3.zero;
-		}
+        for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+            allVertices[meshI][i] = Vector3.zero;
+        }
 
-		meshes[meshI].vertices = allVertices[meshI];
+        meshes[meshI].vertices = allVertices[meshI];
 
-		meshes[meshI].SetTriangles(allTriangles[meshI][submeshI], submeshI);
-		colliders[meshI].sharedMesh = null;
-		colliders[meshI].sharedMesh = meshes[meshI];
-	}
+        meshes[meshI].SetTriangles(allTriangles[meshI][submeshI], submeshI);
+        colliders[meshI].sharedMesh = null;
+        colliders[meshI].sharedMesh = meshes[meshI];
+    }
 
     bool mouseOverUI() {
         List<RaycastResult> raycastResults = new List<RaycastResult>();
@@ -495,20 +495,20 @@ public class BuildMesh : MonoBehaviour {
 
         isRotating = true;
         dragStartPosition = Input.mousePosition;
-        
-		if (Input.GetKey("left ctrl")) {
-			Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-			RaycastHit rayHit;
-			if (Physics.Raycast(ray, out rayHit) && rayHit.triangleIndex != -1) {
-				removeCubeFromRay(rayHit);
-			}
-		}
+
+        if (Input.GetKey("left ctrl")) {
+            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            RaycastHit rayHit;
+            if (Physics.Raycast(ray, out rayHit) && rayHit.triangleIndex != -1) {
+                removeCubeFromRay(rayHit);
+            }
+        }
     }
 
     public void OnMouseDrag() {
         if (isRotating) {
             Vector3 change = (Input.mousePosition - dragStartPosition) * rotationSensitivity;
-			gameObject.transform.Rotate(change.y, -change.x, 0, Space.World);
+            gameObject.transform.Rotate(change.y, -change.x, 0, Space.World);
             updateMaterials();
 
             dragStartPosition = Input.mousePosition;
@@ -609,11 +609,11 @@ public class BuildMesh : MonoBehaviour {
     void orthogonalScroll(int layers) {
         // Camera direction in the local space of the mesh
         Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
-        
+
         int axis;
         int sign;
         getMainAxisAndSign(cameraDirection, out axis, out sign);
-        
+
         // Keep the end number of layers such that the two ends of the cube do not pass each other, or go beyond the cube
         int newRmLayers = (int)constrain(rmLayersXyz[axis, sign] + layers, 0, cubeCounts[axis] - 1 - rmLayersXyz[axis, (sign + 1) % 2]);
         // The number to actually modify now
@@ -668,13 +668,13 @@ public class BuildMesh : MonoBehaviour {
 
         rmLayersXyz[axis, sign] = newRmLayers;
     }
-		
-	// Update is called once per frame
-	void Update () {
+
+    // Update is called once per frame
+    void Update() {
         if (shouldSnap && !isRotating) {
             gameObject.transform.rotation = Quaternion.Slerp(gameObject.transform.rotation, snappingRotation, Time.deltaTime * 4);
         }
-        
+
         // Make scrolling slower, but allow the partial ticks to accumulate
         sumDeltaScrollTicks += -Input.mouseScrollDelta.y / 2;
         if (Math.Abs(sumDeltaScrollTicks) >= 1) {
@@ -682,6 +682,6 @@ public class BuildMesh : MonoBehaviour {
             sumDeltaScrollTicks -= ticks;
             orthogonalScroll(ticks);
         }
-		updateMaterials();
+        updateMaterials();
     }
 }
