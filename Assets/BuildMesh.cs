@@ -442,6 +442,9 @@ public class BuildMesh : MonoBehaviour {
     void getMeshISubmeshITriangleI(RaycastHit rayHit, out int meshI, out int submeshI, out int triangleI) {
         int globalTriangleI = rayHit.triangleIndex * 3;
         int previousIndexSum = 0;
+		Debug.Log("rayHit: " + rayHit);
+		Debug.Log("rayHit.collider: " + rayHit.collider);
+		Debug.Log(rayHit.collider.name);
         int meshNum = int.Parse(rayHit.collider.name.Substring("mesh".Length));
         for (int i = 0; i < allTriangles[meshNum].Length; i++) {
             int relativeI = globalTriangleI - previousIndexSum;
@@ -459,8 +462,8 @@ public class BuildMesh : MonoBehaviour {
     }
 
     public void removeCubeFromRay(RaycastHit rayHit) {
-        if (rayHit.triangleIndex == -1) {
-            Debug.Log("BuildMesh.cs:removeCubeFromRay() triangleIndex is -1!");
+		if (rayHit.triangleIndex == -1 || rayHit.collider == null) {
+            Debug.Log("BuildMesh.cs:removeCubeFromRay() triangleIndex is -1, or rayHit.collider is null!");
             return;
         }
         int meshI;

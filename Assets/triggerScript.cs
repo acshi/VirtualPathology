@@ -22,6 +22,7 @@ public class triggerScript : MonoBehaviour {
     // Update is called once per frame
     void FixedUpdate() {
 		if (device != null) {
+			Debug.Log ("not null");
 			if (trackedObject.index != SteamVR_TrackedObject.EIndex.None) {
 				device = SteamVR_Controller.Input ((int)trackedObject.index);
 			} else {
