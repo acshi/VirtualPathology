@@ -11,8 +11,9 @@ public class triggerScript : MonoBehaviour {
 
     private Vector3 positionDifference;
 	private Vector3 oldPosition;
-	private int slideSensitivity = 5;
+	private int slideSensitivity = 120;
 	private float increment = .1f;
+	private float sumScrollDelta;
 
 	private SteamVR_Controller.Device device = null;
 
@@ -60,7 +61,14 @@ public class triggerScript : MonoBehaviour {
 				laser.active = true;
 			} else if (controllerState == states.slice) {
 				if (device.GetPress (SteamVR_Controller.ButtonMask.Trigger)) {
-					buildMesh.orthogonalScroll ((int) (oldPosition.z - gameObject.transform.position.z) * slideSensitivity);
+
+					sumScrollDelta += (gameObject.transform.position.z - oldPosition.z)	* slideSensitivity;				
+					if (Mathf.Abs(sumScrollDelta) >= 1) {
+						int ticks = (int)sumScrollDelta;
+						sumScrollDelta -= ticks;
+						buildMesh.orthogonalScroll(ticks);
+					}
+
 				}
 				laser.active = false;
 			}
@@ -91,9 +99,8 @@ public class triggerScript : MonoBehaviour {
 						}
 					}
 				}
-
+			oldPosition = gameObject.transform.position;
 		}
-		oldPosition = gameObject.transform.position;
     }
 
     void OnCollisionEnter(Collision col) {
