@@ -563,6 +563,7 @@ public class BuildMesh : MonoBehaviour {
 			Vector3 change = (currentPosition - dragStartPosition) * rotationSensitivity;
 			//Debug.Log ("change: " + change);
 			gameObject.transform.Rotate(change.y, -change.x, 0, Space.World);
+			//gameObject.transform.rotation = Quaternion.FromToRotation((dragStartPosition - gameObject.transform.position), (currentPosition - gameObject.transform.position));
 			updateMaterials();
 
 			updateSnapScale();

@@ -14,9 +14,21 @@ public class triggerScript : MonoBehaviour {
 
 	private SteamVR_Controller.Device device = null;
 
+	public states controllerState;
+
+	private LaserPointer laser;
+	public enum states
+	{
+		rotate,
+		zoom,
+		slice,
+		shoot
+	}
+
     // Use this for initialization
     void Awake() {
         trackedObject = GetComponent<SteamVR_TrackedObject>();
+		laser = GetComponent<LaserPointer> ();
     }
 
 
@@ -30,12 +42,23 @@ public class triggerScript : MonoBehaviour {
 
 		} else {
 			//Debug.Log ("pos:" + gameObject.transform.position);
-			if (device.GetPressDown (SteamVR_Controller.ButtonMask.Trigger)) {
-				buildMesh.triggerDown (gameObject.transform.position);
-			} else if (device.GetPress (SteamVR_Controller.ButtonMask.Trigger)) {
-				buildMesh.triggerHeld (gameObject.transform.position);
-			} else if (device.GetPressUp (SteamVR_Controller.ButtonMask.Trigger)) {
-				buildMesh.triggerUp ();
+			if (controllerState == states.rotate) {
+				if (device.GetPressDown (SteamVR_Controller.ButtonMask.Trigger)) {
+					buildMesh.triggerDown (gameObject.transform.position);
+				} else if (device.GetPress (SteamVR_Controller.ButtonMask.Trigger)) {
+					buildMesh.triggerHeld (gameObject.transform.position);
+				} else if (device.GetPressUp (SteamVR_Controller.ButtonMask.Trigger)) {
+					buildMesh.triggerUp ();
+				}
+				laser.active = false;
+			} else if (controllerState == states.zoom) {
+				laser.active = false;
+			} else if (controllerState == states.shoot) {
+				laser.active = true;
+			} else if (controllerState == states.slice) {
+				if (device.GetPress (SteamVR_Controller.ButtonMask.Trigger)) {
+				}
+				laser.active = false;
 			}
 
 
@@ -45,18 +68,22 @@ public class triggerScript : MonoBehaviour {
 					if (coords.x > -.2f && coords.x < .2f) {
 						if (coords.y < 0) {
 							Debug.Log ("bottom");
-							buildMesh.zoomIn (-increment);
+							//buildMesh.zoomIn (-increment);
+						controllerState = states.zoom;
 						} else {
 							Debug.Log ("top");
-							buildMesh.zoomIn (increment);
+							//buildMesh.zoomIn (increment);
+						controllerState = states.slice;
 						}
 					} else {
 						if (coords.x < 0) {
 							Debug.Log ("left");
-							procedural.transform.Rotate (0, 10, 0);
+							//procedural.transform.Rotate (0, 10, 0);
+						controllerState = states.shoot;
 						} else {
 							Debug.Log ("right");
-							procedural.transform.Rotate (0, -10, 0);
+							//procedural.transform.Rotate (0, -10, 0);
+						controllerState = states.rotate;
 						}
 					}
 				}
