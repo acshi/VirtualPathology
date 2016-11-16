@@ -4,12 +4,13 @@ using Valve.VR;
 
 public class triggerScript : MonoBehaviour {
 
+    public BuildMesh buildMesh;
     public GameObject procedural;
 
     private SteamVR_TrackedObject trackedObject;
 
     private Vector3 positionDifference;
-    private Vector3 increment = new Vector3(.1f, .1f, .1f);
+    private float increment = .1f;
 
     private SteamVR_Controller.Device device;
 
@@ -35,10 +36,10 @@ public class triggerScript : MonoBehaviour {
             if (coords.x > -.2f && coords.x < .2f) {
                 if (coords.y < 0) {
                     Debug.Log("bottom");
-                    procedural.transform.localScale -= increment;
+                    buildMesh.zoomIn(-increment);
                 } else {
                     Debug.Log("top");
-                    procedural.transform.localScale += increment;
+                    buildMesh.zoomIn(increment);
                 }
             } else {
                 if (coords.x < 0) {
