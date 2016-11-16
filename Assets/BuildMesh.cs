@@ -688,6 +688,7 @@ public class BuildMesh : MonoBehaviour {
     }
 
     public void orthogonalScroll(int layers) {
+		Debug.Log ("scroll");
         // Camera direction in the local space of the mesh
         Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
 

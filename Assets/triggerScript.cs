@@ -10,7 +10,9 @@ public class triggerScript : MonoBehaviour {
     private SteamVR_TrackedObject trackedObject;
 
     private Vector3 positionDifference;
-    private float increment = .1f;
+	private Vector3 oldPosition;
+	private int slideSensitivity = 5;
+	private float increment = .1f;
 
 	private SteamVR_Controller.Device device = null;
 
@@ -29,6 +31,7 @@ public class triggerScript : MonoBehaviour {
     void Awake() {
         trackedObject = GetComponent<SteamVR_TrackedObject>();
 		laser = GetComponent<LaserPointer> ();
+		oldPosition = gameObject.transform.position;
     }
 
 
@@ -57,6 +60,7 @@ public class triggerScript : MonoBehaviour {
 				laser.active = true;
 			} else if (controllerState == states.slice) {
 				if (device.GetPress (SteamVR_Controller.ButtonMask.Trigger)) {
+					buildMesh.orthogonalScroll ((int) (oldPosition.z - gameObject.transform.position.z) * slideSensitivity);
 				}
 				laser.active = false;
 			}
@@ -89,6 +93,7 @@ public class triggerScript : MonoBehaviour {
 				}
 
 		}
+		oldPosition = gameObject.transform.position;
     }
 
     void OnCollisionEnter(Collision col) {
