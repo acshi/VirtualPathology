@@ -11,7 +11,8 @@ public class BuildMesh : MonoBehaviour {
 
     public float yAspectRatio = 2.8f;
     public int subcubeSize = 64; // each cube has x, y, and z of this dimension.
-    const float rotationSensitivity = 300f;
+    const float rotationSensitivity = 0.3f;
+    const float triggerRotationSensitivity = 300f;
     const float baseCameraZ = -2;
 
     Texture2D[] layers; // original image files -- the y axis
@@ -560,7 +561,7 @@ public class BuildMesh : MonoBehaviour {
 		
 		if (isRotating) {
 			//Debug.Log ("triggerHeld: isRotating");
-			Vector3 change = (currentPosition - dragStartPosition) * rotationSensitivity;
+			Vector3 change = (currentPosition - dragStartPosition) * triggerRotationSensitivity;
 			//Debug.Log ("change: " + change);
 			gameObject.transform.Rotate(change.y, -change.x, 0, Space.World);
 			//gameObject.transform.rotation = Quaternion.FromToRotation((dragStartPosition - gameObject.transform.position), (currentPosition - gameObject.transform.position));
