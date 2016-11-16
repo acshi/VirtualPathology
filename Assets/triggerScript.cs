@@ -19,19 +19,24 @@ public class triggerScript : MonoBehaviour {
         trackedObject = GetComponent<SteamVR_TrackedObject>();
     }
 
+
+
     // Update is called once per frame
-    void FixedUpdate() {
-		if (device != null) {
-			Debug.Log ("not null");
+    void Update() {
+		if (device == null) {
 			if (trackedObject.index != SteamVR_TrackedObject.EIndex.None) {
 				device = SteamVR_Controller.Input ((int)trackedObject.index);
-			} else {
-				if (device.GetTouch (SteamVR_Controller.ButtonMask.Trigger)) {
-					Debug.Log ("got press");
-					procedural.transform.position = transform.position + positionDifference;
-				} else {
-					positionDifference = procedural.transform.position - transform.position;
-				}
+			} 
+
+		} else {
+			//Debug.Log ("pos:" + gameObject.transform.position);
+			if (device.GetPressDown (SteamVR_Controller.ButtonMask.Trigger)) {
+				buildMesh.triggerDown (gameObject.transform.position);
+			} else if (device.GetPress (SteamVR_Controller.ButtonMask.Trigger)) {
+				buildMesh.triggerHeld (gameObject.transform.position);
+			} else if (device.GetPressUp (SteamVR_Controller.ButtonMask.Trigger)) {
+				buildMesh.triggerUp ();
+			}
 
 
 				if (device.GetPressDown (SteamVR_Controller.ButtonMask.Touchpad)) {
@@ -55,7 +60,7 @@ public class triggerScript : MonoBehaviour {
 						}
 					}
 				}
-			}
+
 		}
     }
 

@@ -11,7 +11,7 @@ public class BuildMesh : MonoBehaviour {
 
     public float yAspectRatio = 2.8f;
     public int subcubeSize = 64; // each cube has x, y, and z of this dimension.
-    const float rotationSensitivity = 0.3f;
+    const float rotationSensitivity = 300f;
     const float baseCameraZ = -2;
 
     Texture2D[] layers; // original image files -- the y axis
@@ -538,7 +538,51 @@ public class BuildMesh : MonoBehaviour {
         rot.y = (float)Math.Round(rot.y / 90f) * 90;
         rot.z = (float)Math.Round(rot.z / 90f) * 90;
         snappingRotation = Quaternion.Euler(rot);
-    }
+    } 
+
+	//TODO: write some nice, modular code here instead of copy pasting
+	public void triggerDown(Vector3 initialPosition) {
+		// If the allTriangles array has been mangled by a code reload, recreate all the missing arrays
+		if (allTriangles == null || allTriangles[0] == null) {
+			Recreate();
+		}
+
+		//if (mouseOverUI()) {
+		//	return;
+		//}
+
+		isRotating = true;
+		dragStartPosition = initialPosition;
+		Debug.Log ("initialPosition" + initialPosition);
+	}
+
+	public void triggerHeld(Vector3 currentPosition) {
+		
+		if (isRotating) {
+			//Debug.Log ("triggerHeld: isRotating");
+			Vector3 change = (currentPosition - dragStartPosition) * rotationSensitivity;
+			//Debug.Log ("change: " + change);
+			gameObject.transform.Rotate(change.y, -change.x, 0, Space.World);
+			updateMaterials();
+
+			updateSnapScale();
+
+			dragStartPosition = currentPosition;
+		}
+	}
+
+	public void triggerUp() {
+		isRotating = false;
+
+		// Find rotation to snap to
+		Vector3 rot = gameObject.transform.rotation.eulerAngles;
+		Debug.Log ("triggerUp, rot: " + rot);
+		rot.x = (float)Math.Round(rot.x / 90f) * 90;
+		rot.y = (float)Math.Round(rot.y / 90f) * 90;
+		rot.z = (float)Math.Round(rot.z / 90f) * 90;
+		snappingRotation = Quaternion.Euler(rot);
+	}
+
 
     void updateSnapScale() {
         // Camera direction in the local space of the mesh
@@ -731,5 +775,7 @@ public class BuildMesh : MonoBehaviour {
             orthogonalScroll(ticks);
         }
         updateMaterials();
+
+	
     }
 }
