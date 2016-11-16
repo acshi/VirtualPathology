@@ -7,61 +7,84 @@ using UnityEngine.UI;
 
 public class BuildMesh : MonoBehaviour {
     public string ImageLayerDirectory = "human_kidney_png";
-	public bool loadFromStreamingAssets = true;
+    public bool loadFromStreamingAssets = true;
 
     public float yAspectRatio = 2.8f;
     public int subcubeSize = 64; // each cube has x, y, and z of this dimension.
-    const float rotationSensitivity = 0.3f;
+    const float rotationSensitivity = 300f;
+    const float baseCameraZ = -2;
 
     Texture2D[] layers; // original image files -- the y axis
     float scaleFactor;
     int layerWidth; // Z
     int layerHeight; // X
     int layerNumber; // Y
+    int[] layerPixels;
 
-	// Number of cubes in each of x, y, and z axes
+    // Number of cubes in each of x, y, and z axes
     int[] cubeCounts;
 
-	// Each mesh will be a cuboid with full x and y dimensions, but will take a section of the total z
-	// This way each mesh can have less than 65536 vertices.
+    // Each mesh will be a cuboid with full x and y dimensions, but will take a section of the total z
+    // This way each mesh can have less than 65536 vertices.
     int zPerMesh;
 
-	// Used as a reference only to set up the materials of the meshes
+    // Used as a reference only to set up the materials of the meshes
     MeshRenderer baseRenderer;
-
+	LineRenderer slicelineRenderer;
     GameObject[] gameObjects;
     Mesh[] meshes;
+    Rigidbody[] rigidbodies;
     MeshRenderer[] renderers;
     MeshCollider[] colliders;
+    Vector3[][] allVertices; // [meshIndex][vertexIndex]
+    Vector3[][] allOriginalVertices;
     int[][][] allTriangles; // [meshIndex][subMeshIndex][triangleIndex]
 
     List<Texture2D> cachedTextures = new List<Texture2D>();
     List<Plane> cachedTexturePlanes = new List<Plane>();
-    
+
+    // To minimize changes in updateMaterials
+    int materialsMainAxis = -1; // xyz: 0, 1, 2
+    int materialsAxisSign = -1; // +-: 0, 1
+
     bool isRotating = false;
+	enum sliceMode {NONE, VERT, HORIZ};
+	sliceMode currentSliceMode;
     Vector3 dragStartPosition;
 
-    float[] xLayersMinMax = new float[] { 0, 1 };
-    float[] yLayersMinMax = new float[] { 0, 1 };
-    float[] zLayersMinMax = new float[] { 0, 1 };
+    // How much to add to the local scale of the object
+    // We use scale to effect zoom in a camera-independant manner
+    public float zoomIncrements = 0;
+
+    public bool shouldSnap = true;
+    Quaternion snappingRotation = new Quaternion();
+    float snappingZoomIncrement = 0;
+
+    int[,] rmLayersXyz = new int[3, 2]; // [xyz index, minMax index]
     //Vector3 positiveAxisZoom; // increase to view inner layers on the + side
     //Vector3 negativeAxisZoom; // for - side.
+    float sumDeltaScrollTicks = 0;
 
     // UI Elements
     public Toggle transferFunctionToggle;
+    public Text transparencyText;
     public Slider transparencyScalarSlider;
+    public Text contrastText;
     public Slider contrastSlider;
+    public Text qualityText;
+    public Slider qualitySlider;
 
     // Shader properties
     bool transferFunctionEnabled = true;
     float transparencyScalar = 0.8f;
     float contrast = 1.0f;
+    int quality = 2;
 
     void makeMeshCubes(float xl, float yl, float zl) {
         // Number of cubes to make in each dimension: x, y, z
         cubeCounts = new int[] { layerHeight / subcubeSize, (int)Math.Ceiling(yAspectRatio * layerNumber / subcubeSize), layerWidth / subcubeSize };
 
-		Debug.Log (cubeCounts[0] + " " + cubeCounts[1] + " " + cubeCounts[2]);
+        Debug.Log(cubeCounts[0] + " " + cubeCounts[1] + " " + cubeCounts[2]);
         int totalCubeCount = cubeCounts[0] * cubeCounts[1] * cubeCounts[2];
 
         // Each mesh is limited to 65536 vertices. How many meshes are needed to cover all vertices?
@@ -71,13 +94,14 @@ public class BuildMesh : MonoBehaviour {
 
         if (allTriangles == null || allTriangles.Length != meshCount) {
             allTriangles = new int[meshCount][][];
+            allVertices = new Vector3[meshCount][];
+            allOriginalVertices = new Vector3[meshCount][];
             gameObjects = new GameObject[meshCount];
             meshes = new Mesh[meshCount];
+            rigidbodies = new Rigidbody[meshCount];
             renderers = new MeshRenderer[meshCount];
             colliders = new MeshCollider[meshCount];
         }
-
-        Quaternion originalRotation = new Quaternion();
 
         for (int meshI = 0; meshI < meshCount; meshI++) {
             int zInMesh = Math.Min(zPerMesh, cubeCounts[2] - meshI * zPerMesh); // so last mesh takes remainder
@@ -96,10 +120,16 @@ public class BuildMesh : MonoBehaviour {
                     meshes[meshI] = mesh;
 
                     renderers[meshI] = obj.GetComponent<MeshRenderer>();
+                    rigidbodies[meshI] = obj.GetComponent<Rigidbody>();
                     collider = obj.GetComponent<MeshCollider>();
                     colliders[meshI] = collider;
                 } else {
                     obj = new GameObject("mesh" + meshI);
+                    // The child transform will implicitly take the parent one into account
+                    // So for the child to have "zero" rotation, it should be set to the parent rotation
+                    obj.transform.parent = gameObject.transform;
+                    obj.transform.rotation = gameObject.transform.rotation;
+
                     gameObjects[meshI] = obj;
                     SubmeshEvents submeshEvents = obj.AddComponent<SubmeshEvents>();
                     submeshEvents.buildMesh = this;
@@ -109,19 +139,17 @@ public class BuildMesh : MonoBehaviour {
                     meshes[meshI] = mesh;
 
                     renderers[meshI] = obj.AddComponent<MeshRenderer>();
+
+                    rigidbodies[meshI] = obj.AddComponent<Rigidbody>();
+                    rigidbodies[meshI].useGravity = false;
+                    rigidbodies[meshI].isKinematic = true;
+
                     collider = obj.AddComponent<MeshCollider>();
                     colliders[meshI] = collider;
                 }
             } else {
                 mesh = meshes[meshI];
                 collider = colliders[meshI];
-            }
-
-            // Keep rotation uniform across all meshes
-            if (meshI == 0) {
-                originalRotation = gameObjects[0].transform.rotation;
-            } else {
-                gameObjects[meshI].transform.rotation = originalRotation;
             }
 
             mesh.subMeshCount = meshTextureCount;
@@ -167,12 +195,13 @@ public class BuildMesh : MonoBehaviour {
             }
 
             // remove old triangles before changing vertices
-            /*
-			for (int i = 0; i < mesh.subMeshCount; i++) {
+            for (int i = 0; i < mesh.subMeshCount; i++) {
                 mesh.SetTriangles(new int[0], i);
-            }*/
+            }
 
-			Debug.Log ("CubeI: " + cubeI);
+            Debug.Log("CubeI: " + cubeI);
+            allVertices[meshI] = vertices;
+            allOriginalVertices[meshI] = (Vector3[])vertices.Clone();
             mesh.vertices = vertices;
             mesh.uv = uvs;
 
@@ -257,17 +286,17 @@ public class BuildMesh : MonoBehaviour {
 
     void loadLayerFiles() {
         // The files in the designated folder have the source y-layers
-		string path;
-		if (loadFromStreamingAssets) {
-			path = Path.Combine (Application.streamingAssetsPath, ImageLayerDirectory);
-		} else {
-			path = ImageLayerDirectory;
-		}
-        
-		if (!Directory.Exists(path)) {
-			Debug.Log("Directory does not exist");
+        string path;
+        if (loadFromStreamingAssets) {
+            path = Path.Combine(Application.streamingAssetsPath, ImageLayerDirectory);
+        } else {
+            path = ImageLayerDirectory;
+        }
+
+        if (!Directory.Exists(path)) {
+            Debug.Log("Directory does not exist");
             return;
-		}
+        }
 
         string[] files = Directory.GetFiles(path, "*.png");
         layers = new Texture2D[files.Length];
@@ -284,6 +313,8 @@ public class BuildMesh : MonoBehaviour {
         layerWidth = layers[0].width;
         layerHeight = layers[0].height;
         layerNumber = layers.Length;
+
+        layerPixels = new int[3] { layerHeight, layerNumber, layerWidth };
     }
 
     Texture2D textureForPlane(Plane plane) {
@@ -329,7 +360,7 @@ public class BuildMesh : MonoBehaviour {
         for (int meshI = 0; meshI < meshes.Length; meshI++) {
             Mesh mesh = meshes[meshI];
             MeshRenderer meshRend = renderers[meshI];
-            
+
             meshRend.materials = new Material[mesh.subMeshCount];
             for (int i = 0; i < meshRend.materials.Length; i++) {
                 meshRend.materials[i] = new Material(baseMaterial);
@@ -339,45 +370,36 @@ public class BuildMesh : MonoBehaviour {
         }
     }
 
-    /*void setTextures(MeshRenderer rend) {
-        int meshI = 0;
-        // loop x, y, z
-        for (int i = 0; i < 3; i++) {
-            Vector3 planeDirection = new Vector3(i == 0 ? 1 : 0, i == 1 ? 1 : 0, i == 2 ? 1 : 0);
-            for (int j = 0; j < cubeCounts[i]; j++) {
-                rend.materials[meshI].mainTexture = textureForPlane(new Plane(planeDirection, (float)j / (cubeCounts[i] - 1)));
-                meshI++;
-            }
-        }
-    }*/
-
     void updateMaterials() {
-		// Camera direction in the local space of the mesh
-		Vector3 cameraDirection = gameObjects[0].transform.InverseTransformDirection(Camera.main.transform.forward);
-		Vector3 centerNormal = getViewNormal(); // normal of plane in center of view
+        // Camera direction in the local space of the mesh
+        Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
+
+        int mainAxis;
+        int mainAxisSign;
+        getMainAxisAndSign(cameraDirection, out mainAxis, out mainAxisSign);
+
+        if (materialsMainAxis == mainAxis && materialsAxisSign == mainAxisSign) {
+            return;
+        }
+        materialsMainAxis = mainAxis;
+        materialsAxisSign = mainAxisSign;
 
         for (int meshI = 0; meshI < meshes.Length; meshI++) {
             MeshRenderer meshRend = renderers[meshI];
 
             int submeshI = 0;
             // loop x, y, z
-            float[] cameraDirXyz = new float[3] {cameraDirection.x, cameraDirection.y, cameraDirection.z };
-			float[] centerNXyz = new float[3] { centerNormal.x, centerNormal.y, centerNormal.z };
+            float[] cameraDirXyz = new float[3] { cameraDirection.x, cameraDirection.y, cameraDirection.z };
             for (int i = 0; i < 3; i++) {
                 Vector3 planeDirection = new Vector3(i == 0 ? 1 : 0, i == 1 ? 1 : 0, i == 2 ? 1 : 0);
-
-				float absDir = Math.Abs(centerNXyz[i]);
-				float otherAbsDir1 = Math.Abs(centerNXyz[(i + 1) % 3]);
-				float otherAbsDir2 = Math.Abs(centerNXyz[(i + 2) % 3]);
-
-                bool notMain = absDir < otherAbsDir1 || absDir < otherAbsDir2;
+                bool notMain = i != mainAxis;
 
                 int count = cubeCounts[i];
                 // Only pass through those index values for this specific set of z values
                 for (int j = (i == 2) ? meshI * zPerMesh : 0; j < count && ((i == 2) ? j < (meshI + 1) * zPerMesh : true); j++) {
                     // Some of these numbers are arbitrary, but the important thing is that the faces
-					// render back to front, and that the main axis faces also render before the other axes
-					int drawIndex = (int)(2000 * -cameraDirXyz[i] * j / count * (i == 0 ? -1 : 1)) + 2000;
+                    // render back to front, and that the main axis faces also render before the other axes
+                    int drawIndex = (int)(2000 * -cameraDirXyz[i] * j / count * (i == 0 ? -1 : 1)) + 2000;
                     meshRend.materials[submeshI].renderQueue = 3000 + drawIndex + (notMain ? 3000 : 0);
                     meshRend.materials[submeshI].mainTexture = textureForPlane(new Plane(planeDirection, (float)j / (count - 1)));
                     submeshI++;
@@ -394,7 +416,7 @@ public class BuildMesh : MonoBehaviour {
         baseRenderer = GetComponent<MeshRenderer>();
 
         Recreate();
-	}
+    }
 
     float constrain(float val, float min, float max) {
         return Math.Min(max, Math.Max(min, val));
@@ -407,32 +429,165 @@ public class BuildMesh : MonoBehaviour {
         makeMeshCubes(scaleFactor * layerWidth, scaleFactor * layerNumber, scaleFactor * layerHeight);
 
         setupTextures();
+
+        // reset back to nothing removed, because the whole mesh has changed
+        rmLayersXyz = new int[3, 2];
+
+        // Force updateMaterials to reset everything
+        materialsMainAxis = -1;
+        materialsAxisSign = -1;
         updateMaterials();
+
         updateShaderProperties();
     }
 
-	// Doesn't deal with multiple meshes. Broken!
-	void getMeshISubmeshITriangleI(RaycastHit rayhit, out int meshI, out int submeshI, out int triangleI) {
-		int globalTriangleI = rayhit.triangleIndex * 3;
-		int previousIndexSum = 0;
-		//Debug.Log("globalTriangleI: " + globalTriangleI);
-		//Debug.Log("allTriangles.Length: " + allTriangles.Length);
-		int meshNum = Int32.Parse(rayhit.collider.name.Substring("mesh".Length));
-		for (int i = 0; i < allTriangles[meshNum].Length; i++) {
-			int relativeI = globalTriangleI - previousIndexSum;
-			//Debug.Log ("relativeI: " + relativeI);
-			//Debug.Log ("allTriangles[" + meshNum + "][" + i + "].Length: " + allTriangles[meshNum][i].Length);
-			if (relativeI < allTriangles[meshNum][i].Length) {
-				meshI = meshNum;
-				submeshI = i;
-				triangleI = relativeI;
-				return;
+    void getMeshISubmeshITriangleI(RaycastHit rayHit, out int meshI, out int submeshI, out int triangleI) {
+        int globalTriangleI = rayHit.triangleIndex * 3;
+        int previousIndexSum = 0;
+		Debug.Log("rayHit: " + rayHit);
+		Debug.Log("rayHit.collider: " + rayHit.collider);
+		Debug.Log(rayHit.collider.name);
+        int meshNum = int.Parse(rayHit.collider.name.Substring("mesh".Length));
+        for (int i = 0; i < allTriangles[meshNum].Length; i++) {
+            int relativeI = globalTriangleI - previousIndexSum;
+            if (relativeI < allTriangles[meshNum][i].Length) {
+                meshI = meshNum;
+                submeshI = i;
+                triangleI = relativeI;
+                return;
+            }
+            previousIndexSum += allTriangles[meshNum][i].Length;
+        }
+        meshI = -1;
+        submeshI = -1;
+        triangleI = -1;
+    }
+
+	public void xSlice(int y, int direction) {
+		if (direction < 0) {
+			for (int z_index = 0; z_index < cubeCounts [2]; z_index++) {
+				for (int y_index = 0; y_index < y; y_index++) {
+					for (int x_index = 0; x_index < cubeCounts [0]; x_index++) {
+						int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
+						int meshI = cubeIndex / (cubeCounts [0] * cubeCounts [1] * zPerMesh);
+						cubeIndex = cubeIndex % (cubeCounts [0] * cubeCounts [1] * zPerMesh);
+						for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+							allVertices [meshI] [i] = Vector3.zero;
+						}
+					}
+				}
 			}
-			previousIndexSum += allTriangles[meshNum][i].Length;
+		} else {
+			for (int z_index = 0; z_index < cubeCounts [2]; z_index++) {
+				for (int y_index = cubeCounts[1] - 1; y_index > y; y_index--) {
+					for (int x_index = 0; x_index < cubeCounts [0]; x_index++) {
+						int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
+						int meshI = cubeIndex / (cubeCounts [0] * cubeCounts [1] * zPerMesh);
+						cubeIndex = cubeIndex % (cubeCounts [0] * cubeCounts [1] * zPerMesh);
+						for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+							allVertices [meshI] [i] = Vector3.zero;
+						}
+					}
+				}
+			}
 		}
-		meshI = -1;
-		submeshI = -1;
-		triangleI = -1;
+		for (int index = 0; index < 3; index++) {
+			meshes [index].vertices = allVertices [index];
+		}
+	}
+
+	public void ySlice(int x, int direction) {
+		if (direction < 0) {
+			for (int z_index = 0; z_index < cubeCounts [2]; z_index++) {
+				for (int y_index = 0; y_index < cubeCounts[1]; y_index++) {
+					for (int x_index = 0; x_index < x; x_index++) {
+						int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
+						int meshI = cubeIndex / (cubeCounts [0] * cubeCounts [1] * zPerMesh);
+						cubeIndex = cubeIndex % (cubeCounts [0] * cubeCounts [1] * zPerMesh);
+						for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+							allVertices [meshI] [i] = Vector3.zero;
+						}
+					}
+				}
+			}
+		} else {
+			for (int z_index = 0; z_index < cubeCounts [2]; z_index++) {
+				for (int y_index = 0; y_index < cubeCounts[1]; y_index++) {
+					for (int x_index = cubeCounts[0] - 1; x_index > x; x_index--) {
+						int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
+						int meshI = cubeIndex / (cubeCounts [0] * cubeCounts [1] * zPerMesh);
+						cubeIndex = cubeIndex % (cubeCounts [0] * cubeCounts [1] * zPerMesh);
+						for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+							allVertices [meshI] [i] = Vector3.zero;
+						}
+					}
+				}
+			}
+		}
+		for (int index = 0; index < 3; index++) {
+			meshes [index].vertices = allVertices [index];
+		}
+	}
+
+	public void zSlice(int z, int direction) {
+		if (direction < 0) {
+			for (int z_index = 0; z_index < z; z_index++) {
+				for (int y_index = 0; y_index < cubeCounts[1]; y_index++) {
+					for (int x_index = 0; x_index < cubeCounts[0]; x_index++) {
+						int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
+						int meshI = cubeIndex / (cubeCounts [0] * cubeCounts [1] * zPerMesh);
+						cubeIndex = cubeIndex % (cubeCounts [0] * cubeCounts [1] * zPerMesh);
+						for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+							allVertices [meshI] [i] = Vector3.zero;
+						}
+					}
+				}
+			}
+		} else {
+			for (int z_index = cubeCounts[2] - 1; z_index > z; z_index--) {
+				for (int y_index = 0; y_index < cubeCounts[1]; y_index++) {
+					for (int x_index = 0; x_index < cubeCounts[0]; x_index++) {
+						int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
+						int meshI = cubeIndex / (cubeCounts [0] * cubeCounts [1] * zPerMesh);
+						cubeIndex = cubeIndex % (cubeCounts [0] * cubeCounts [1] * zPerMesh);
+						for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+							allVertices [meshI] [i] = Vector3.zero;
+						}
+					}
+				}
+			}
+		}
+		for (int index = 0; index < 3; index++) {
+			meshes [index].vertices = allVertices [index];
+		}
+	}
+    public void removeCubeFromRay(RaycastHit rayHit) {
+		if (rayHit.triangleIndex == -1 || rayHit.collider == null) {
+            Debug.Log("BuildMesh.cs:removeCubeFromRay() triangleIndex is -1, or rayHit.collider is null!");
+            return;
+        }
+        int meshI;
+        int submeshI;
+        int triangleI;
+        getMeshISubmeshITriangleI(rayHit, out meshI, out submeshI, out triangleI);
+
+        int vert1 = allTriangles[meshI][submeshI][triangleI + 0];
+        int vert2 = allTriangles[meshI][submeshI][triangleI + 1];
+        int vert3 = allTriangles[meshI][submeshI][triangleI + 2];
+        int cubeIndex = Math.Min(vert1, Math.Min(vert2, vert3)) / 24;
+		Debug.Log (new Vector3 (cubeCounts [0], cubeCounts [1], cubeCounts [2]));
+		Debug.Log (cubeIndex); 
+		Debug.Log (meshI);
+		Debug.Log (gameObject.transform.rotation.eulerAngles);
+        for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+            allVertices[meshI][i] = Vector3.zero;
+        }
+
+        meshes[meshI].vertices = allVertices[meshI];
+
+        meshes[meshI].SetTriangles(allTriangles[meshI][submeshI], submeshI);
+        colliders[meshI].sharedMesh = null;
+        colliders[meshI].sharedMesh = meshes[meshI];
     }
 
     bool mouseOverUI() {
@@ -444,51 +599,116 @@ public class BuildMesh : MonoBehaviour {
     }
 
     public void OnMouseDown() {
+        // If the allTriangles array has been mangled by a code reload, recreate all the missing arrays
+        if (allTriangles == null || allTriangles[0] == null) {
+            Recreate();
+        }
+
         if (mouseOverUI()) {
             return;
         }
 
         isRotating = true;
         dragStartPosition = Input.mousePosition;
-        
-		if (Input.GetKey("left ctrl")) {
-			Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
-			RaycastHit rayHit;
-			if (Physics.Raycast(ray, out rayHit) && rayHit.triangleIndex != -1) {
-				int meshI;
-				int submeshI;
-				int triangleI;
-				getMeshISubmeshITriangleI(rayHit, out meshI, out submeshI, out triangleI);
 
-				int vert1 = allTriangles [meshI] [submeshI] [triangleI + 0];
-				int vert2 = allTriangles [meshI] [submeshI] [triangleI + 1];
-				int vert3 = allTriangles [meshI] [submeshI] [triangleI + 2];
-				int cubeIndex = Math.Min (vert1, Math.Min (vert2, vert3)) / 24;
-				Vector3[] vertices = meshes[meshI].vertices;
+        if (Input.GetKey("left ctrl")) {
+            Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
+            RaycastHit rayHit;
+            if (Physics.Raycast(ray, out rayHit) && rayHit.triangleIndex != -1) {
+                removeCubeFromRay(rayHit);
+            }
+        }
+		Ray ray2;
+		RaycastHit rayHit2;
+		Vector3 axes;
+		int maxIndex;
+		int sign;
+		switch (currentSliceMode) {
+		case sliceMode.NONE:
+			break;
 
-				for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
-					vertices[i] = Vector3.zero;
-				}
-				//allTriangles[meshI][submeshI][triangleI + 0] = 0;
-				//allTriangles[meshI][submeshI][triangleI + 1] = 0;
-				//allTriangles[meshI][submeshI][triangleI + 2] = 0;
-
-				meshes[meshI].vertices = vertices;
-
-				meshes[meshI].SetTriangles(allTriangles[meshI][submeshI], submeshI);
-				colliders[meshI].sharedMesh = null;
-				colliders[meshI].sharedMesh = meshes[meshI];
+		case sliceMode.VERT:
+			ray2 = Camera.main.ScreenPointToRay (Input.mousePosition);
+			Physics.Raycast (ray2, out rayHit2);
+			//Debug.Log ("VERT QUATERNION");
+			axes = Quaternion.Inverse (gameObject.transform.rotation) * Vector3.right;
+			maxIndex = getMaxIndex (axes);
+			sign = maxIndex > 0 ? 1 : -1;
+			maxIndex = Mathf.Abs (maxIndex);
+			float cubeX;
+			if (maxIndex != 1) {
+				sign *= -1;
 			}
+			if (sign == -1) {
+				cubeX = (float) (rayHit2.point.x + 1.0) / 2.0f;
+			} else {
+				cubeX = 1.0f - ((float) (rayHit2.point.x + 1.0) / 2.0f);
+			}
+			switch (maxIndex) {
+			case 2:
+				xSlice ((int)((cubeX) * cubeCounts[1]), -1 * sign);
+				break;
+			case 1:
+				ySlice ((int)(cubeX * cubeCounts[0]), -1 * sign);
+				break;
+			case 3:
+				zSlice ((int)((cubeX) * cubeCounts[2]), -1 * sign);
+				break;
+			}
+			//Debug.Log (axes);
+			break;
+		case sliceMode.HORIZ:
+			ray2 = Camera.main.ScreenPointToRay (Input.mousePosition);
+			Physics.Raycast (ray2, out rayHit2);
+			float cubeY;
+			//Debug.Log ("HORIZ QUATERNION");
+			axes = Quaternion.Inverse (gameObject.transform.rotation) * Vector3.up;
+			maxIndex = getMaxIndex (axes);
+			sign = maxIndex > 0 ? 1 : -1;
+			maxIndex = Mathf.Abs (maxIndex);
+			if (maxIndex != 2) {
+				sign *= -1;
+			}
+			if (sign == 1) {
+				cubeY = (float) (rayHit2.point.y + 1.0) / 2.0f;
+			} else {
+				cubeY =  1.0f - ((float) (rayHit2.point.y + 1.0) / 2.0f);
+			}
+			switch (maxIndex) {
+			case 2:
+				xSlice ((int)(cubeY * cubeCounts[1]), -1 * sign);
+				break;
+			case 1:
+				ySlice ((int)(cubeY * cubeCounts[0]), -1 * sign);
+				break;
+			case 3:
+				zSlice ((int)((1.0f-cubeY) * cubeCounts[2]), sign);
+				break;
+			}
+			//Debug.Log (axes);
+			break;
 		}
     }
+
+	public int getMaxIndex(Vector3 v) {
+		if (Mathf.Abs(v.x) > Mathf.Abs(v.y)) {
+			if (Mathf.Abs(v.x) > Mathf.Abs(v.z)) {
+				return v.x > 0 ? 1 : -1;
+			}
+			return v.z > 0 ? 3 : -3;
+		} else if (Mathf.Abs(v.y) > Mathf.Abs(v.z)) {
+			return v.y > 0 ? 2 : -2;
+		}
+		return v.z > 0 ? 3 : -3;
+	}
 
     public void OnMouseDrag() {
         if (isRotating) {
             Vector3 change = (Input.mousePosition - dragStartPosition) * rotationSensitivity;
-            for (int meshI = 0; meshI < meshes.Length; meshI++) {
-                gameObjects[meshI].transform.Rotate(change.y, -change.x, 0, Space.World);
-            }
+            gameObject.transform.Rotate(change.y, -change.x, 0, Space.World);
             updateMaterials();
+
+            updateSnapScale();
 
             dragStartPosition = Input.mousePosition;
         }
@@ -496,6 +716,76 @@ public class BuildMesh : MonoBehaviour {
 
     public void OnMouseUp() {
         isRotating = false;
+
+        // Find rotation to snap to
+        Vector3 rot = gameObject.transform.rotation.eulerAngles;
+        rot.x = (float)Math.Round(rot.x / 90f) * 90;
+        rot.y = (float)Math.Round(rot.y / 90f) * 90;
+        rot.z = (float)Math.Round(rot.z / 90f) * 90;
+        snappingRotation = Quaternion.Euler(rot);
+    } 
+
+	//TODO: write some nice, modular code here instead of copy pasting
+	public void triggerDown(Vector3 initialPosition) {
+		// If the allTriangles array has been mangled by a code reload, recreate all the missing arrays
+		if (allTriangles == null || allTriangles[0] == null) {
+			Recreate();
+		}
+
+		//if (mouseOverUI()) {
+		//	return;
+		//}
+
+		isRotating = true;
+		dragStartPosition = initialPosition;
+		Debug.Log ("initialPosition" + initialPosition);
+	}
+
+	public void triggerHeld(Vector3 currentPosition) {
+		
+		if (isRotating) {
+			//Debug.Log ("triggerHeld: isRotating");
+			Vector3 change = (currentPosition - dragStartPosition) * rotationSensitivity;
+			//Debug.Log ("change: " + change);
+			gameObject.transform.Rotate(change.y, -change.x, 0, Space.World);
+			//gameObject.transform.rotation = Quaternion.FromToRotation((dragStartPosition - gameObject.transform.position), (currentPosition - gameObject.transform.position));
+			updateMaterials();
+
+			updateSnapScale();
+
+			dragStartPosition = currentPosition;
+		}
+	}
+
+	public void triggerUp() {
+		isRotating = false;
+
+		// Find rotation to snap to
+		Vector3 rot = gameObject.transform.rotation.eulerAngles;
+		Debug.Log ("triggerUp, rot: " + rot);
+		rot.x = (float)Math.Round(rot.x / 90f) * 90;
+		rot.y = (float)Math.Round(rot.y / 90f) * 90;
+		rot.z = (float)Math.Round(rot.z / 90f) * 90;
+		snappingRotation = Quaternion.Euler(rot);
+	}
+
+
+    void updateSnapScale() {
+        // Camera direction in the local space of the mesh
+        Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
+
+        int mainAxis;
+        int mainAxisSign;
+        getMainAxisAndSign(cameraDirection, out mainAxis, out mainAxisSign);
+
+        int removedLayers = rmLayersXyz[mainAxis, mainAxisSign];
+        int totalLayers = cubeCounts[mainAxis];
+        float totalHeight = layerPixels[mainAxis] * scaleFactor;
+        if (mainAxis == 1) {
+            totalHeight *= yAspectRatio;
+        }
+
+        snappingZoomIncrement = totalHeight / totalLayers * removedLayers;
     }
 
     public void setTransferFunctionEnabled(bool enabled) {
@@ -505,22 +795,31 @@ public class BuildMesh : MonoBehaviour {
 
     public void setTransparencyScalar(float transparency) {
         transparencyScalar = transparency;
+        transparencyText.text = "Transparency: " + transparency.ToString("F1");
         updateShaderProperties();
     }
 
     public void setContrast(float value) {
         contrast = value;
+        contrastText.text = "Contrast: " + contrast.ToString("F1");
         updateShaderProperties();
     }
 
+    public void setQuality(float q) {
+        quality = (int)q;
+        qualityText.text = "Quality: " + quality;
+        subcubeSize = new int[] { 70, 50, 30, 20 }[quality - 1];
+        Recreate();
+    }
+
     public void resetAll() {
-        for (int meshI = 0; meshI < meshes.Length; meshI++) {
-            gameObjects[meshI].transform.rotation = new Quaternion();
-        }
+        gameObject.transform.rotation = new Quaternion();
+        snappingRotation = new Quaternion();
 
         transferFunctionToggle.isOn = true;
         transparencyScalarSlider.value = 0.5f;
         contrastSlider.value = 1.0f;
+        qualitySlider.value = 2;
 
         updateMaterials();
     }
@@ -531,9 +830,13 @@ public class BuildMesh : MonoBehaviour {
             for (int matI = 0; matI < materials.Length; matI++) {
                 materials[matI].SetInt("_UseTransferFunction", transferFunctionEnabled ? 1 : 0);
                 materials[matI].SetFloat("_TransparencyScalar", transparencyScalar);
-                materials[matI].SetFloat("_Contrast", contrast);
+                materials[matI].SetFloat("_Contrast", contrast * 3);
             }
         }
+    }
+
+    public void zoomIn(float increment) {
+        zoomIncrements += increment;
     }
 
     bool floatEquals(float a, float b) {
@@ -552,33 +855,161 @@ public class BuildMesh : MonoBehaviour {
         return hitSurfaceNormal;
     }
 
-	// Update is called once per frame
-	void Update () {
-        float scrollTicks = -Input.mouseScrollDelta.y;
-        if (Math.Abs(scrollTicks) > 0) {
-            Vector3 viewNormal = getViewNormal();
+    void getMainAxisAndSign(Vector3 direction, out int axis, out int sign) {
+        float absX = Math.Abs(direction.x);
+        float absY = Math.Abs(direction.y);
+        float absZ = Math.Abs(direction.z);
 
-            if (floatEquals(viewNormal.x, -1)) {
-                xLayersMinMax[1] = constrain(xLayersMinMax[1] + scrollTicks / (layerHeight - 1), 0, 1);
-                xLayersMinMax[0] = Math.Min(xLayersMinMax[0], xLayersMinMax[1]); // Keep at least one layer visible
-            } else if (floatEquals(viewNormal.x, 1)) {
-                xLayersMinMax[0] = constrain(xLayersMinMax[0] - scrollTicks / (layerHeight - 1), 0, 1);
-                xLayersMinMax[1] = Math.Max(xLayersMinMax[1], xLayersMinMax[0]);
-            } else if (floatEquals(viewNormal.y, 1)) {
-                yLayersMinMax[1] = constrain(yLayersMinMax[1] + scrollTicks / (layerNumber - 1), 0, 1);
-                yLayersMinMax[0] = Math.Min(yLayersMinMax[0], yLayersMinMax[1]);
-            } else if (floatEquals(viewNormal.y, -1)) {
-                yLayersMinMax[0] = constrain(yLayersMinMax[0] - scrollTicks / (layerNumber - 1), 0, 1);
-                yLayersMinMax[1] = Math.Max(yLayersMinMax[1], yLayersMinMax[0]);
-            } else if (floatEquals(viewNormal.z, 1)) {
-                zLayersMinMax[1] = constrain(zLayersMinMax[1] + scrollTicks / (layerWidth - 1), 0, 1);
-                zLayersMinMax[0] = Math.Min(zLayersMinMax[0], zLayersMinMax[1]);
-            } else if (floatEquals(viewNormal.z, -1)) {
-                zLayersMinMax[0] = constrain(zLayersMinMax[0] - scrollTicks / (layerWidth - 1), 0, 1);
-                zLayersMinMax[1] = Math.Max(zLayersMinMax[1], zLayersMinMax[0]);
-            }
-
-            Recreate();
+        if (absX > absY && absX > absZ) {
+            axis = 0;
+            sign = direction.x < 0 ? 1 : 0;
+        } else if (absY > absZ) {
+            axis = 1;
+            sign = direction.y < 0 ? 1 : 0;
+        } else {
+            axis = 2;
+            sign = direction.z < 0 ? 1 : 0;
         }
+    }
+
+    public void orthogonalScroll(int layers) {
+		Debug.Log ("scroll");
+        // Camera direction in the local space of the mesh
+        Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
+
+        int axis;
+        int sign;
+        getMainAxisAndSign(cameraDirection, out axis, out sign);
+
+        // Keep the end number of layers such that the two ends of the cube do not pass each other, or go beyond the cube
+        int newRmLayers = (int)constrain(rmLayersXyz[axis, sign] + layers, 0, cubeCounts[axis] - 1 - rmLayersXyz[axis, (sign + 1) % 2]);
+        // The number to actually modify now
+        int layerCount = Math.Abs(newRmLayers - rmLayersXyz[axis, sign]);
+
+        if (layerCount == 0) {
+            return;
+        }
+
+        for (int l = 0; l < layerCount; l++) {
+            // We subtract an extra layer here because you when layers is negative
+            // we are actually adding the _next_ layer back, which is not visible
+            // When removing layers, we remove the current visible layer, so the number isn't changed.
+            int deltaL = layers < 0 ? -l - 1 : l;
+            // Cube index is (cubeZI - meshI * zPerMesh) * (cubeCountY * cubeCountX) + cubeYI * cubeCountX + cubeCountX
+            int axis2 = (axis + 1) % 3;
+            int axis3 = (axis + 2) % 3;
+
+            int[] dimIs = new int[3] { 0, 0, 0 };
+            // The dimension index of the layer we are removing
+            bool countFromZero = sign == 0;
+            countFromZero = axis == 0 ? !countFromZero : countFromZero;
+            dimIs[axis] = countFromZero ? (rmLayersXyz[axis, sign] + deltaL) : (cubeCounts[axis] - 1 - rmLayersXyz[axis, sign] - deltaL);
+
+            int dim2Min = rmLayersXyz[axis2, axis2 == 0 ? 1 : 0];
+            int dim2Max = cubeCounts[axis2] - rmLayersXyz[axis2, axis2 == 0 ? 0 : 1];
+            for (dimIs[axis2] = dim2Min; dimIs[axis2] < dim2Max; dimIs[axis2]++) {
+                int dim3Min = rmLayersXyz[axis3, axis3 == 0 ? 1 : 0];
+                int dim3Max = cubeCounts[axis3] - rmLayersXyz[axis3, axis3 == 0 ? 0 : 1];
+                for (dimIs[axis3] = dim3Min; dimIs[axis3] < dim3Max; dimIs[axis3]++) {
+                    int cubeXI = dimIs[0];
+                    int cubeYI = dimIs[1];
+                    int cubeZI = dimIs[2];
+                    int meshI = cubeZI / zPerMesh;
+                    int relativeCubeZI = cubeZI - meshI * zPerMesh;
+                    int cubeIndex = relativeCubeZI * (cubeCounts[1] * cubeCounts[0]) + cubeYI * cubeCounts[0] + cubeXI;
+
+                    for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+                        if (layers > 0) {
+                            allVertices[meshI][i] = Vector3.zero;
+                        } else {
+                            allVertices[meshI][i] = allOriginalVertices[meshI][i];
+                        }
+                    }
+                }
+            }
+        }
+
+        for (int meshI = 0; meshI < meshes.Length; meshI++) {
+            meshes[meshI].vertices = allVertices[meshI];
+        }
+
+        rmLayersXyz[axis, sign] = newRmLayers;
+        updateSnapScale();
+    }
+
+    // Update is called once per frame
+    void Update() {
+		if (Input.GetKeyDown ("left shift")) {
+			switch (currentSliceMode) {
+			case sliceMode.NONE:
+				currentSliceMode = sliceMode.VERT;
+
+				slicelineRenderer = gameObject.AddComponent<LineRenderer> ();
+				slicelineRenderer.material = new Material (Shader.Find("Standard"));
+				 
+				slicelineRenderer.material.color = Color.red;
+
+				slicelineRenderer.startWidth = 0.01f;
+				slicelineRenderer.endWidth = 0.01f;
+				slicelineRenderer.startColor = Color.red;
+				slicelineRenderer.endColor = Color.red;
+				slicelineRenderer.numPositions = 2;
+				break;
+			case sliceMode.VERT:
+				currentSliceMode = sliceMode.HORIZ;
+				break;
+			case sliceMode.HORIZ:
+				currentSliceMode = sliceMode.NONE;
+				Destroy (slicelineRenderer);
+				break;
+			}
+		}
+
+		Ray ray2;
+		RaycastHit rayHit2;
+		switch (currentSliceMode) {
+		case sliceMode.NONE:
+			break;
+
+		case sliceMode.VERT:
+			ray2 = Camera.main.ScreenPointToRay (Input.mousePosition);
+			Physics.Raycast (ray2, out rayHit2);
+			slicelineRenderer.SetPosition (0, new Vector3 (rayHit2.point.x, 1, rayHit2.point.z));
+			slicelineRenderer.SetPosition (1, new Vector3 (rayHit2.point.x, -1, rayHit2.point.z));
+			break;
+		case sliceMode.HORIZ:
+			ray2 = Camera.main.ScreenPointToRay(Input.mousePosition);
+			Physics.Raycast(ray2, out rayHit2);
+			slicelineRenderer.SetPosition (0, new Vector3 (1, rayHit2.point.y, rayHit2.point.z));
+			slicelineRenderer.SetPosition (1, new Vector3 (-1, rayHit2.point.y, rayHit2.point.z));
+			break;
+		}
+
+
+        if (shouldSnap && !isRotating) {
+            gameObject.transform.rotation = Quaternion.Slerp(gameObject.transform.rotation, snappingRotation, Time.deltaTime * 4);
+        }
+        if (shouldSnap) {
+            Vector3 cameraPos = Camera.main.transform.position;
+            Vector3 newCameraPos = cameraPos;
+            newCameraPos.z = baseCameraZ + zoomIncrements + snappingZoomIncrement;
+
+            Camera.main.transform.position = Vector3.Slerp(cameraPos, newCameraPos, Time.deltaTime * 6);
+        } else {
+            Vector3 newCameraPos = Camera.main.transform.position;
+            newCameraPos.z = baseCameraZ + zoomIncrements;
+            Camera.main.transform.position = newCameraPos;
+        }
+
+        // Make scrolling slower, but allow the partial ticks to accumulate
+        sumDeltaScrollTicks += -Input.mouseScrollDelta.y / 2;
+        if (Math.Abs(sumDeltaScrollTicks) >= 1) {
+            int ticks = (int)sumDeltaScrollTicks;
+            sumDeltaScrollTicks -= ticks;
+            orthogonalScroll(ticks);
+        }
+        updateMaterials();
+
+	
     }
 }
