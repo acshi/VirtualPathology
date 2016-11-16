@@ -12,12 +12,14 @@ public class BuildMesh : MonoBehaviour {
     public float yAspectRatio = 2.8f;
     public int subcubeSize = 64; // each cube has x, y, and z of this dimension.
     const float rotationSensitivity = 0.3f;
+    const float baseCameraZ = -2;
 
     Texture2D[] layers; // original image files -- the y axis
     float scaleFactor;
     int layerWidth; // Z
     int layerHeight; // X
     int layerNumber; // Y
+    int[] layerPixels;
 
     // Number of cubes in each of x, y, and z axes
     int[] cubeCounts;
@@ -48,8 +50,13 @@ public class BuildMesh : MonoBehaviour {
     bool isRotating = false;
     Vector3 dragStartPosition;
 
+    // How much to add to the local scale of the object
+    // We use scale to effect zoom in a camera-independant manner
+    public float zoomIncrements = 0;
+
     public bool shouldSnap = true;
     Quaternion snappingRotation = new Quaternion();
+    float snappingZoomIncrement = 0;
 
     int[,] rmLayersXyz = new int[3, 2]; // [xyz index, minMax index]
     //Vector3 positiveAxisZoom; // increase to view inner layers on the + side
@@ -304,6 +311,8 @@ public class BuildMesh : MonoBehaviour {
         layerWidth = layers[0].width;
         layerHeight = layers[0].height;
         layerNumber = layers.Length;
+
+        layerPixels = new int[3] { layerHeight, layerNumber, layerWidth };
     }
 
     Texture2D textureForPlane(Plane plane) {
@@ -511,6 +520,8 @@ public class BuildMesh : MonoBehaviour {
             gameObject.transform.Rotate(change.y, -change.x, 0, Space.World);
             updateMaterials();
 
+            updateSnapScale();
+
             dragStartPosition = Input.mousePosition;
         }
     }
@@ -524,6 +535,24 @@ public class BuildMesh : MonoBehaviour {
         rot.y = (float)Math.Round(rot.y / 90f) * 90;
         rot.z = (float)Math.Round(rot.z / 90f) * 90;
         snappingRotation = Quaternion.Euler(rot);
+    }
+
+    void updateSnapScale() {
+        // Camera direction in the local space of the mesh
+        Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
+
+        int mainAxis;
+        int mainAxisSign;
+        getMainAxisAndSign(cameraDirection, out mainAxis, out mainAxisSign);
+
+        int removedLayers = rmLayersXyz[mainAxis, mainAxisSign];
+        int totalLayers = cubeCounts[mainAxis];
+        float totalHeight = layerPixels[mainAxis] * scaleFactor;
+        if (mainAxis == 1) {
+            totalHeight *= yAspectRatio;
+        }
+
+        snappingZoomIncrement = totalHeight / totalLayers * removedLayers;
     }
 
     public void setTransferFunctionEnabled(bool enabled) {
@@ -573,6 +602,10 @@ public class BuildMesh : MonoBehaviour {
         }
     }
 
+    public void zoomIn(float increment) {
+        zoomIncrements += increment;
+    }
+
     bool floatEquals(float a, float b) {
         float epsilon = 1e-5f;
         return Math.Abs(a - b) < epsilon;
@@ -606,7 +639,7 @@ public class BuildMesh : MonoBehaviour {
         }
     }
 
-    void orthogonalScroll(int layers) {
+    public void orthogonalScroll(int layers) {
         // Camera direction in the local space of the mesh
         Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
 
@@ -667,12 +700,24 @@ public class BuildMesh : MonoBehaviour {
         }
 
         rmLayersXyz[axis, sign] = newRmLayers;
+        updateSnapScale();
     }
 
     // Update is called once per frame
     void Update() {
         if (shouldSnap && !isRotating) {
             gameObject.transform.rotation = Quaternion.Slerp(gameObject.transform.rotation, snappingRotation, Time.deltaTime * 4);
+        }
+        if (shouldSnap) {
+            Vector3 cameraPos = Camera.main.transform.position;
+            Vector3 newCameraPos = cameraPos;
+            newCameraPos.z = baseCameraZ + zoomIncrements + snappingZoomIncrement;
+
+            Camera.main.transform.position = Vector3.Slerp(cameraPos, newCameraPos, Time.deltaTime * 6);
+        } else {
+            Vector3 newCameraPos = Camera.main.transform.position;
+            newCameraPos.z = baseCameraZ + zoomIncrements;
+            Camera.main.transform.position = newCameraPos;
         }
 
         // Make scrolling slower, but allow the partial ticks to accumulate
