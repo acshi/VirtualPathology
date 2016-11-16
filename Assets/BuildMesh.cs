@@ -31,7 +31,7 @@ public class BuildMesh : MonoBehaviour {
 
     // Used as a reference only to set up the materials of the meshes
     MeshRenderer baseRenderer;
-	LineRenderer slicelineRenderer;
+    LineRenderer slicelineRenderer;
     GameObject[] gameObjects;
     Mesh[] meshes;
     Rigidbody[] rigidbodies;
@@ -49,8 +49,8 @@ public class BuildMesh : MonoBehaviour {
     int materialsAxisSign = -1; // +-: 0, 1
 
     bool isRotating = false;
-	enum sliceMode {NONE, VERT, HORIZ};
-	sliceMode currentSliceMode;
+    enum sliceMode { NONE, VERT, HORIZ };
+    sliceMode currentSliceMode;
     Vector3 dragStartPosition;
 
     // How much to add to the local scale of the object
@@ -445,9 +445,9 @@ public class BuildMesh : MonoBehaviour {
     void getMeshISubmeshITriangleI(RaycastHit rayHit, out int meshI, out int submeshI, out int triangleI) {
         int globalTriangleI = rayHit.triangleIndex * 3;
         int previousIndexSum = 0;
-		Debug.Log("rayHit: " + rayHit);
-		Debug.Log("rayHit.collider: " + rayHit.collider);
-		Debug.Log(rayHit.collider.name);
+        Debug.Log("rayHit: " + rayHit);
+        Debug.Log("rayHit.collider: " + rayHit.collider);
+        Debug.Log(rayHit.collider.name);
         int meshNum = int.Parse(rayHit.collider.name.Substring("mesh".Length));
         for (int i = 0; i < allTriangles[meshNum].Length; i++) {
             int relativeI = globalTriangleI - previousIndexSum;
@@ -464,106 +464,106 @@ public class BuildMesh : MonoBehaviour {
         triangleI = -1;
     }
 
-	public void xSlice(int y, int direction) {
-		if (direction < 0) {
-			for (int z_index = 0; z_index < cubeCounts [2]; z_index++) {
-				for (int y_index = 0; y_index < y; y_index++) {
-					for (int x_index = 0; x_index < cubeCounts [0]; x_index++) {
-						int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
-						int meshI = cubeIndex / (cubeCounts [0] * cubeCounts [1] * zPerMesh);
-						cubeIndex = cubeIndex % (cubeCounts [0] * cubeCounts [1] * zPerMesh);
-						for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
-							allVertices [meshI] [i] = Vector3.zero;
-						}
-					}
-				}
-			}
-		} else {
-			for (int z_index = 0; z_index < cubeCounts [2]; z_index++) {
-				for (int y_index = cubeCounts[1] - 1; y_index > y; y_index--) {
-					for (int x_index = 0; x_index < cubeCounts [0]; x_index++) {
-						int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
-						int meshI = cubeIndex / (cubeCounts [0] * cubeCounts [1] * zPerMesh);
-						cubeIndex = cubeIndex % (cubeCounts [0] * cubeCounts [1] * zPerMesh);
-						for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
-							allVertices [meshI] [i] = Vector3.zero;
-						}
-					}
-				}
-			}
-		}
-		for (int index = 0; index < 3; index++) {
-			meshes [index].vertices = allVertices [index];
-		}
-	}
+    public void xSlice(int y, int direction) {
+        if (direction < 0) {
+            for (int z_index = 0; z_index < cubeCounts[2]; z_index++) {
+                for (int y_index = 0; y_index < y; y_index++) {
+                    for (int x_index = 0; x_index < cubeCounts[0]; x_index++) {
+                        int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
+                        int meshI = cubeIndex / (cubeCounts[0] * cubeCounts[1] * zPerMesh);
+                        cubeIndex = cubeIndex % (cubeCounts[0] * cubeCounts[1] * zPerMesh);
+                        for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+                            allVertices[meshI][i] = Vector3.zero;
+                        }
+                    }
+                }
+            }
+        } else {
+            for (int z_index = 0; z_index < cubeCounts[2]; z_index++) {
+                for (int y_index = cubeCounts[1] - 1; y_index > y; y_index--) {
+                    for (int x_index = 0; x_index < cubeCounts[0]; x_index++) {
+                        int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
+                        int meshI = cubeIndex / (cubeCounts[0] * cubeCounts[1] * zPerMesh);
+                        cubeIndex = cubeIndex % (cubeCounts[0] * cubeCounts[1] * zPerMesh);
+                        for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+                            allVertices[meshI][i] = Vector3.zero;
+                        }
+                    }
+                }
+            }
+        }
+        for (int index = 0; index < 3; index++) {
+            meshes[index].vertices = allVertices[index];
+        }
+    }
 
-	public void ySlice(int x, int direction) {
-		if (direction < 0) {
-			for (int z_index = 0; z_index < cubeCounts [2]; z_index++) {
-				for (int y_index = 0; y_index < cubeCounts[1]; y_index++) {
-					for (int x_index = 0; x_index < x; x_index++) {
-						int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
-						int meshI = cubeIndex / (cubeCounts [0] * cubeCounts [1] * zPerMesh);
-						cubeIndex = cubeIndex % (cubeCounts [0] * cubeCounts [1] * zPerMesh);
-						for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
-							allVertices [meshI] [i] = Vector3.zero;
-						}
-					}
-				}
-			}
-		} else {
-			for (int z_index = 0; z_index < cubeCounts [2]; z_index++) {
-				for (int y_index = 0; y_index < cubeCounts[1]; y_index++) {
-					for (int x_index = cubeCounts[0] - 1; x_index > x; x_index--) {
-						int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
-						int meshI = cubeIndex / (cubeCounts [0] * cubeCounts [1] * zPerMesh);
-						cubeIndex = cubeIndex % (cubeCounts [0] * cubeCounts [1] * zPerMesh);
-						for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
-							allVertices [meshI] [i] = Vector3.zero;
-						}
-					}
-				}
-			}
-		}
-		for (int index = 0; index < 3; index++) {
-			meshes [index].vertices = allVertices [index];
-		}
-	}
+    public void ySlice(int x, int direction) {
+        if (direction < 0) {
+            for (int z_index = 0; z_index < cubeCounts[2]; z_index++) {
+                for (int y_index = 0; y_index < cubeCounts[1]; y_index++) {
+                    for (int x_index = 0; x_index < x; x_index++) {
+                        int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
+                        int meshI = cubeIndex / (cubeCounts[0] * cubeCounts[1] * zPerMesh);
+                        cubeIndex = cubeIndex % (cubeCounts[0] * cubeCounts[1] * zPerMesh);
+                        for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+                            allVertices[meshI][i] = Vector3.zero;
+                        }
+                    }
+                }
+            }
+        } else {
+            for (int z_index = 0; z_index < cubeCounts[2]; z_index++) {
+                for (int y_index = 0; y_index < cubeCounts[1]; y_index++) {
+                    for (int x_index = cubeCounts[0] - 1; x_index > x; x_index--) {
+                        int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
+                        int meshI = cubeIndex / (cubeCounts[0] * cubeCounts[1] * zPerMesh);
+                        cubeIndex = cubeIndex % (cubeCounts[0] * cubeCounts[1] * zPerMesh);
+                        for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+                            allVertices[meshI][i] = Vector3.zero;
+                        }
+                    }
+                }
+            }
+        }
+        for (int index = 0; index < 3; index++) {
+            meshes[index].vertices = allVertices[index];
+        }
+    }
 
-	public void zSlice(int z, int direction) {
-		if (direction < 0) {
-			for (int z_index = 0; z_index < z; z_index++) {
-				for (int y_index = 0; y_index < cubeCounts[1]; y_index++) {
-					for (int x_index = 0; x_index < cubeCounts[0]; x_index++) {
-						int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
-						int meshI = cubeIndex / (cubeCounts [0] * cubeCounts [1] * zPerMesh);
-						cubeIndex = cubeIndex % (cubeCounts [0] * cubeCounts [1] * zPerMesh);
-						for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
-							allVertices [meshI] [i] = Vector3.zero;
-						}
-					}
-				}
-			}
-		} else {
-			for (int z_index = cubeCounts[2] - 1; z_index > z; z_index--) {
-				for (int y_index = 0; y_index < cubeCounts[1]; y_index++) {
-					for (int x_index = 0; x_index < cubeCounts[0]; x_index++) {
-						int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
-						int meshI = cubeIndex / (cubeCounts [0] * cubeCounts [1] * zPerMesh);
-						cubeIndex = cubeIndex % (cubeCounts [0] * cubeCounts [1] * zPerMesh);
-						for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
-							allVertices [meshI] [i] = Vector3.zero;
-						}
-					}
-				}
-			}
-		}
-		for (int index = 0; index < 3; index++) {
-			meshes [index].vertices = allVertices [index];
-		}
-	}
+    public void zSlice(int z, int direction) {
+        if (direction < 0) {
+            for (int z_index = 0; z_index < z; z_index++) {
+                for (int y_index = 0; y_index < cubeCounts[1]; y_index++) {
+                    for (int x_index = 0; x_index < cubeCounts[0]; x_index++) {
+                        int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
+                        int meshI = cubeIndex / (cubeCounts[0] * cubeCounts[1] * zPerMesh);
+                        cubeIndex = cubeIndex % (cubeCounts[0] * cubeCounts[1] * zPerMesh);
+                        for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+                            allVertices[meshI][i] = Vector3.zero;
+                        }
+                    }
+                }
+            }
+        } else {
+            for (int z_index = cubeCounts[2] - 1; z_index > z; z_index--) {
+                for (int y_index = 0; y_index < cubeCounts[1]; y_index++) {
+                    for (int x_index = 0; x_index < cubeCounts[0]; x_index++) {
+                        int cubeIndex = z_index * cubeCounts[0] * cubeCounts[1] + y_index * cubeCounts[0] + x_index;
+                        int meshI = cubeIndex / (cubeCounts[0] * cubeCounts[1] * zPerMesh);
+                        cubeIndex = cubeIndex % (cubeCounts[0] * cubeCounts[1] * zPerMesh);
+                        for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
+                            allVertices[meshI][i] = Vector3.zero;
+                        }
+                    }
+                }
+            }
+        }
+        for (int index = 0; index < 3; index++) {
+            meshes[index].vertices = allVertices[index];
+        }
+    }
     public void removeCubeFromRay(RaycastHit rayHit) {
-		if (rayHit.triangleIndex == -1 || rayHit.collider == null) {
+        if (rayHit.triangleIndex == -1 || rayHit.collider == null) {
             Debug.Log("BuildMesh.cs:removeCubeFromRay() triangleIndex is -1, or rayHit.collider is null!");
             return;
         }
@@ -576,10 +576,10 @@ public class BuildMesh : MonoBehaviour {
         int vert2 = allTriangles[meshI][submeshI][triangleI + 1];
         int vert3 = allTriangles[meshI][submeshI][triangleI + 2];
         int cubeIndex = Math.Min(vert1, Math.Min(vert2, vert3)) / 24;
-		Debug.Log (new Vector3 (cubeCounts [0], cubeCounts [1], cubeCounts [2]));
-		Debug.Log (cubeIndex); 
-		Debug.Log (meshI);
-		Debug.Log (gameObject.transform.rotation.eulerAngles);
+        Debug.Log(new Vector3(cubeCounts[0], cubeCounts[1], cubeCounts[2]));
+        Debug.Log(cubeIndex);
+        Debug.Log(meshI);
+        Debug.Log(gameObject.transform.rotation.eulerAngles);
         for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
             allVertices[meshI][i] = Vector3.zero;
         }
@@ -619,89 +619,89 @@ public class BuildMesh : MonoBehaviour {
                 removeCubeFromRay(rayHit);
             }
         }
-		Ray ray2;
-		RaycastHit rayHit2;
-		Vector3 axes;
-		int maxIndex;
-		int sign;
-		switch (currentSliceMode) {
-		case sliceMode.NONE:
-			break;
+        Ray ray2;
+        RaycastHit rayHit2;
+        Vector3 axes;
+        int maxIndex;
+        int sign;
+        switch (currentSliceMode) {
+            case sliceMode.NONE:
+                break;
 
-		case sliceMode.VERT:
-			ray2 = Camera.main.ScreenPointToRay (Input.mousePosition);
-			Physics.Raycast (ray2, out rayHit2);
-			//Debug.Log ("VERT QUATERNION");
-			axes = Quaternion.Inverse (gameObject.transform.rotation) * Vector3.right;
-			maxIndex = getMaxIndex (axes);
-			sign = maxIndex > 0 ? 1 : -1;
-			maxIndex = Mathf.Abs (maxIndex);
-			float cubeX;
-			if (maxIndex != 1) {
-				sign *= -1;
-			}
-			if (sign == -1) {
-				cubeX = (float) (rayHit2.point.x + 1.0) / 2.0f;
-			} else {
-				cubeX = 1.0f - ((float) (rayHit2.point.x + 1.0) / 2.0f);
-			}
-			switch (maxIndex) {
-			case 2:
-				xSlice ((int)((cubeX) * cubeCounts[1]), -1 * sign);
-				break;
-			case 1:
-				ySlice ((int)(cubeX * cubeCounts[0]), -1 * sign);
-				break;
-			case 3:
-				zSlice ((int)((cubeX) * cubeCounts[2]), -1 * sign);
-				break;
-			}
-			//Debug.Log (axes);
-			break;
-		case sliceMode.HORIZ:
-			ray2 = Camera.main.ScreenPointToRay (Input.mousePosition);
-			Physics.Raycast (ray2, out rayHit2);
-			float cubeY;
-			//Debug.Log ("HORIZ QUATERNION");
-			axes = Quaternion.Inverse (gameObject.transform.rotation) * Vector3.up;
-			maxIndex = getMaxIndex (axes);
-			sign = maxIndex > 0 ? 1 : -1;
-			maxIndex = Mathf.Abs (maxIndex);
-			if (maxIndex != 2) {
-				sign *= -1;
-			}
-			if (sign == 1) {
-				cubeY = (float) (rayHit2.point.y + 1.0) / 2.0f;
-			} else {
-				cubeY =  1.0f - ((float) (rayHit2.point.y + 1.0) / 2.0f);
-			}
-			switch (maxIndex) {
-			case 2:
-				xSlice ((int)(cubeY * cubeCounts[1]), -1 * sign);
-				break;
-			case 1:
-				ySlice ((int)(cubeY * cubeCounts[0]), -1 * sign);
-				break;
-			case 3:
-				zSlice ((int)((1.0f-cubeY) * cubeCounts[2]), sign);
-				break;
-			}
-			//Debug.Log (axes);
-			break;
-		}
+            case sliceMode.VERT:
+                ray2 = Camera.main.ScreenPointToRay(Input.mousePosition);
+                Physics.Raycast(ray2, out rayHit2);
+                //Debug.Log ("VERT QUATERNION");
+                axes = Quaternion.Inverse(gameObject.transform.rotation) * Vector3.right;
+                maxIndex = getMaxIndex(axes);
+                sign = maxIndex > 0 ? 1 : -1;
+                maxIndex = Mathf.Abs(maxIndex);
+                float cubeX;
+                if (maxIndex != 1) {
+                    sign *= -1;
+                }
+                if (sign == -1) {
+                    cubeX = (float)(rayHit2.point.x + 1.0) / 2.0f;
+                } else {
+                    cubeX = 1.0f - ((float)(rayHit2.point.x + 1.0) / 2.0f);
+                }
+                switch (maxIndex) {
+                    case 2:
+                        xSlice((int)((cubeX) * cubeCounts[1]), -1 * sign);
+                        break;
+                    case 1:
+                        ySlice((int)(cubeX * cubeCounts[0]), -1 * sign);
+                        break;
+                    case 3:
+                        zSlice((int)((cubeX) * cubeCounts[2]), -1 * sign);
+                        break;
+                }
+                //Debug.Log (axes);
+                break;
+            case sliceMode.HORIZ:
+                ray2 = Camera.main.ScreenPointToRay(Input.mousePosition);
+                Physics.Raycast(ray2, out rayHit2);
+                float cubeY;
+                //Debug.Log ("HORIZ QUATERNION");
+                axes = Quaternion.Inverse(gameObject.transform.rotation) * Vector3.up;
+                maxIndex = getMaxIndex(axes);
+                sign = maxIndex > 0 ? 1 : -1;
+                maxIndex = Mathf.Abs(maxIndex);
+                if (maxIndex != 2) {
+                    sign *= -1;
+                }
+                if (sign == 1) {
+                    cubeY = (float)(rayHit2.point.y + 1.0) / 2.0f;
+                } else {
+                    cubeY = 1.0f - ((float)(rayHit2.point.y + 1.0) / 2.0f);
+                }
+                switch (maxIndex) {
+                    case 2:
+                        xSlice((int)(cubeY * cubeCounts[1]), -1 * sign);
+                        break;
+                    case 1:
+                        ySlice((int)(cubeY * cubeCounts[0]), -1 * sign);
+                        break;
+                    case 3:
+                        zSlice((int)((1.0f - cubeY) * cubeCounts[2]), sign);
+                        break;
+                }
+                //Debug.Log (axes);
+                break;
+        }
     }
 
-	public int getMaxIndex(Vector3 v) {
-		if (Mathf.Abs(v.x) > Mathf.Abs(v.y)) {
-			if (Mathf.Abs(v.x) > Mathf.Abs(v.z)) {
-				return v.x > 0 ? 1 : -1;
-			}
-			return v.z > 0 ? 3 : -3;
-		} else if (Mathf.Abs(v.y) > Mathf.Abs(v.z)) {
-			return v.y > 0 ? 2 : -2;
-		}
-		return v.z > 0 ? 3 : -3;
-	}
+    public int getMaxIndex(Vector3 v) {
+        if (Mathf.Abs(v.x) > Mathf.Abs(v.y)) {
+            if (Mathf.Abs(v.x) > Mathf.Abs(v.z)) {
+                return v.x > 0 ? 1 : -1;
+            }
+            return v.z > 0 ? 3 : -3;
+        } else if (Mathf.Abs(v.y) > Mathf.Abs(v.z)) {
+            return v.y > 0 ? 2 : -2;
+        }
+        return v.z > 0 ? 3 : -3;
+    }
 
     public void OnMouseDrag() {
         if (isRotating) {
@@ -724,51 +724,51 @@ public class BuildMesh : MonoBehaviour {
         rot.y = (float)Math.Round(rot.y / 90f) * 90;
         rot.z = (float)Math.Round(rot.z / 90f) * 90;
         snappingRotation = Quaternion.Euler(rot);
-    } 
+    }
 
-	//TODO: write some nice, modular code here instead of copy pasting
-	public void triggerDown(Vector3 initialPosition) {
-		// If the allTriangles array has been mangled by a code reload, recreate all the missing arrays
-		if (allTriangles == null || allTriangles[0] == null) {
-			Recreate();
-		}
+    //TODO: write some nice, modular code here instead of copy pasting
+    public void triggerDown(Vector3 initialPosition) {
+        // If the allTriangles array has been mangled by a code reload, recreate all the missing arrays
+        if (allTriangles == null || allTriangles[0] == null) {
+            Recreate();
+        }
 
-		//if (mouseOverUI()) {
-		//	return;
-		//}
+        //if (mouseOverUI()) {
+        //	return;
+        //}
 
-		isRotating = true;
-		dragStartPosition = initialPosition;
-		Debug.Log ("initialPosition" + initialPosition);
-	}
+        isRotating = true;
+        dragStartPosition = initialPosition;
+        Debug.Log("initialPosition" + initialPosition);
+    }
 
-	public void triggerHeld(Vector3 currentPosition) {
-		
-		if (isRotating) {
-			//Debug.Log ("triggerHeld: isRotating");
-			Vector3 change = (currentPosition - dragStartPosition) * triggerRotationSensitivity;
-			//Debug.Log ("change: " + change);
-			gameObject.transform.Rotate(change.y, -change.x, 0, Space.World);
-			//gameObject.transform.rotation = Quaternion.FromToRotation((dragStartPosition - gameObject.transform.position), (currentPosition - gameObject.transform.position));
-			updateMaterials();
+    public void triggerHeld(Vector3 currentPosition) {
 
-			updateSnapScale();
+        if (isRotating) {
+            //Debug.Log ("triggerHeld: isRotating");
+            Vector3 change = (currentPosition - dragStartPosition) * triggerRotationSensitivity;
+            //Debug.Log ("change: " + change);
+            gameObject.transform.Rotate(change.y, -change.x, 0, Space.World);
+            //gameObject.transform.rotation = Quaternion.FromToRotation((dragStartPosition - gameObject.transform.position), (currentPosition - gameObject.transform.position));
+            updateMaterials();
 
-			dragStartPosition = currentPosition;
-		}
-	}
+            updateSnapScale();
 
-	public void triggerUp() {
-		isRotating = false;
+            dragStartPosition = currentPosition;
+        }
+    }
 
-		// Find rotation to snap to
-		Vector3 rot = gameObject.transform.rotation.eulerAngles;
-		Debug.Log ("triggerUp, rot: " + rot);
-		rot.x = (float)Math.Round(rot.x / 90f) * 90;
-		rot.y = (float)Math.Round(rot.y / 90f) * 90;
-		rot.z = (float)Math.Round(rot.z / 90f) * 90;
-		snappingRotation = Quaternion.Euler(rot);
-	}
+    public void triggerUp() {
+        isRotating = false;
+
+        // Find rotation to snap to
+        Vector3 rot = gameObject.transform.rotation.eulerAngles;
+        Debug.Log("triggerUp, rot: " + rot);
+        rot.x = (float)Math.Round(rot.x / 90f) * 90;
+        rot.y = (float)Math.Round(rot.y / 90f) * 90;
+        rot.z = (float)Math.Round(rot.z / 90f) * 90;
+        snappingRotation = Quaternion.Euler(rot);
+    }
 
 
     void updateSnapScale() {
@@ -874,7 +874,7 @@ public class BuildMesh : MonoBehaviour {
     }
 
     public void orthogonalScroll(int layers) {
-		Debug.Log ("scroll");
+        Debug.Log("scroll");
         // Camera direction in the local space of the mesh
         Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
 
@@ -940,51 +940,50 @@ public class BuildMesh : MonoBehaviour {
 
     // Update is called once per frame
     void Update() {
-		if (Input.GetKeyDown ("left shift")) {
-			switch (currentSliceMode) {
-			case sliceMode.NONE:
-				currentSliceMode = sliceMode.VERT;
+        if (Input.GetKeyDown("left shift")) {
+            switch (currentSliceMode) {
+                case sliceMode.NONE:
+                    currentSliceMode = sliceMode.VERT;
 
-				slicelineRenderer = gameObject.AddComponent<LineRenderer> ();
-				slicelineRenderer.material = new Material (Shader.Find("Standard"));
-				 
-				slicelineRenderer.material.color = Color.red;
+                    slicelineRenderer = gameObject.AddComponent<LineRenderer>();
+                    slicelineRenderer.material = new Material(Shader.Find("Standard"));
 
-				slicelineRenderer.startWidth = 0.01f;
-				slicelineRenderer.endWidth = 0.01f;
-				slicelineRenderer.startColor = Color.red;
-				slicelineRenderer.endColor = Color.red;
-				slicelineRenderer.numPositions = 2;
-				break;
-			case sliceMode.VERT:
-				currentSliceMode = sliceMode.HORIZ;
-				break;
-			case sliceMode.HORIZ:
-				currentSliceMode = sliceMode.NONE;
-				Destroy (slicelineRenderer);
-				break;
-			}
-		}
+                    slicelineRenderer.material.color = Color.red;
 
-		Ray ray2;
-		RaycastHit rayHit2;
-		switch (currentSliceMode) {
-		case sliceMode.NONE:
-			break;
+                    slicelineRenderer.startWidth = 0.01f;
+                    slicelineRenderer.endWidth = 0.01f;
+                    slicelineRenderer.startColor = Color.red;
+                    slicelineRenderer.endColor = Color.red;
+                    slicelineRenderer.numPositions = 2;
+                    break;
+                case sliceMode.VERT:
+                    currentSliceMode = sliceMode.HORIZ;
+                    break;
+                case sliceMode.HORIZ:
+                    currentSliceMode = sliceMode.NONE;
+                    Destroy(slicelineRenderer);
+                    break;
+            }
+        }
 
-		case sliceMode.VERT:
-			ray2 = Camera.main.ScreenPointToRay (Input.mousePosition);
-			Physics.Raycast (ray2, out rayHit2);
-			slicelineRenderer.SetPosition (0, new Vector3 (rayHit2.point.x, 1, rayHit2.point.z));
-			slicelineRenderer.SetPosition (1, new Vector3 (rayHit2.point.x, -1, rayHit2.point.z));
-			break;
-		case sliceMode.HORIZ:
-			ray2 = Camera.main.ScreenPointToRay(Input.mousePosition);
-			Physics.Raycast(ray2, out rayHit2);
-			slicelineRenderer.SetPosition (0, new Vector3 (1, rayHit2.point.y, rayHit2.point.z));
-			slicelineRenderer.SetPosition (1, new Vector3 (-1, rayHit2.point.y, rayHit2.point.z));
-			break;
-		}
+        Ray ray2;
+        RaycastHit rayHit2;
+        switch (currentSliceMode) {
+            case sliceMode.NONE:
+                break;
+            case sliceMode.VERT:
+                ray2 = Camera.main.ScreenPointToRay(Input.mousePosition);
+                Physics.Raycast(ray2, out rayHit2);
+                slicelineRenderer.SetPosition(0, new Vector3(rayHit2.point.x, 1, rayHit2.point.z));
+                slicelineRenderer.SetPosition(1, new Vector3(rayHit2.point.x, -1, rayHit2.point.z));
+                break;
+            case sliceMode.HORIZ:
+                ray2 = Camera.main.ScreenPointToRay(Input.mousePosition);
+                Physics.Raycast(ray2, out rayHit2);
+                slicelineRenderer.SetPosition(0, new Vector3(1, rayHit2.point.y, rayHit2.point.z));
+                slicelineRenderer.SetPosition(1, new Vector3(-1, rayHit2.point.y, rayHit2.point.z));
+                break;
+        }
 
 
         if (shouldSnap && !isRotating) {
@@ -1010,7 +1009,5 @@ public class BuildMesh : MonoBehaviour {
             orthogonalScroll(ticks);
         }
         updateMaterials();
-
-	
     }
 }
