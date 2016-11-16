@@ -17,6 +17,7 @@ public class triggerScript : MonoBehaviour {
     void Awake() {
         trackedObject = GetComponent<SteamVR_TrackedObject>();
         device = SteamVR_Controller.Input((int)trackedObject.index);
+		Debug.Log ("awake and set device");
     }
 
     // Update is called once per frame
