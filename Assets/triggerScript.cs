@@ -8,9 +8,10 @@ public class triggerScript : MonoBehaviour {
     public GameObject procedural;
 
     private SteamVR_TrackedObject trackedObject;
-
+    private Vector3 deltaPosition;
     private Vector3 oldPosition;
-    private int slideSensitivity = 120;
+    public int slideSensitivity = 120;
+    public int translationSensitivity = 3;
     private float sumScrollDelta;
 
     private SteamVR_Controller.Device device = null;
@@ -50,6 +51,7 @@ public class triggerScript : MonoBehaviour {
                 }
                 laser.active = false;
             } else if (controllerState == states.zoom) {
+                //
                 laser.active = false;
             } else if (controllerState == states.shoot) {
                 laser.active = true;
@@ -93,6 +95,12 @@ public class triggerScript : MonoBehaviour {
                 }
             }
         }
+
+        if (device.GetPress(SteamVR_Controller.ButtonMask.Grip)) {
+            procedural.transform.position += deltaPosition;
+        }
+
+        deltaPosition = translationSensitivity * (gameObject.transform.position - oldPosition);
         oldPosition = gameObject.transform.position;
     }
 
