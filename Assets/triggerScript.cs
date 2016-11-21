@@ -21,7 +21,7 @@ public class triggerScript : MonoBehaviour {
     private LaserPointer laser;
     public enum states {
         rotate,
-        zoom,
+        translate,
         slice,
         shoot,
         none
@@ -44,6 +44,7 @@ public class triggerScript : MonoBehaviour {
             //Debug.Log ("pos:" + gameObject.transform.position);
             if (controllerState == states.rotate) {
                 if (device.GetPressDown(SteamVR_Controller.ButtonMask.Trigger)) {
+                    buildMesh.shouldSnap = false;
                     buildMesh.triggerDown(gameObject.transform.position);
                 } else if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
                     buildMesh.triggerHeld(gameObject.transform.position);
@@ -51,8 +52,11 @@ public class triggerScript : MonoBehaviour {
                     buildMesh.triggerUp();
                 }
                 laser.active = false;
-            } else if (controllerState == states.zoom) {
-                //
+            } else if (controllerState == states.translate) {
+                if (device.GetPress (SteamVR_Controller.ButtonMask.Trigger)) {
+                    buildMesh.shouldReset = false;
+                    procedural.transform.position += deltaPosition;
+                }
                 laser.active = false;
             } else if (controllerState == states.shoot) {
                 laser.active = true;
@@ -78,7 +82,7 @@ public class triggerScript : MonoBehaviour {
                 if (coords.y < 0) {
                     Debug.Log("bottom");
                     //buildMesh.zoomIn (-increment);
-                    controllerState = states.zoom;
+                    controllerState = states.translate;
                 } else {
                     Debug.Log("top");
                     //buildMesh.zoomIn (increment);
@@ -97,8 +101,9 @@ public class triggerScript : MonoBehaviour {
             }
         }
 
-        if (device.GetPress(SteamVR_Controller.ButtonMask.Grip)) {
-            procedural.transform.position += deltaPosition;
+        if (device.GetPressDown(SteamVR_Controller.ButtonMask.Grip)) {
+            buildMesh.shouldSnap = true;
+            buildMesh.shouldReset = true;
         }
 
         //toggle menu pointer on menu button

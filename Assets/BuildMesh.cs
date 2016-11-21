@@ -57,7 +57,8 @@ public class BuildMesh : MonoBehaviour {
     // We use scale to effect zoom in a camera-independant manner
     public float zoomIncrements = 0;
 
-    public bool shouldSnap = true;
+    public bool shouldSnap = false;
+    public bool shouldReset = false;
     Quaternion snappingRotation = new Quaternion();
     float snappingZoomIncrement = 0;
 
@@ -988,6 +989,9 @@ public class BuildMesh : MonoBehaviour {
 
         if (shouldSnap && !isRotating) {
             gameObject.transform.rotation = Quaternion.Slerp(gameObject.transform.rotation, snappingRotation, Time.deltaTime * 4);
+        }
+        if (shouldReset) {
+            gameObject.transform.position = Vector3.Slerp (gameObject.transform.position, Vector3.zero, Time.deltaTime * 4);
         }
         if (shouldSnap) {
             Vector3 cameraPos = Camera.main.transform.position;
