@@ -23,7 +23,8 @@ public class triggerScript : MonoBehaviour {
         rotate,
         zoom,
         slice,
-        shoot
+        shoot,
+        none
     }
 
     // Use this for initialization
@@ -98,6 +99,12 @@ public class triggerScript : MonoBehaviour {
 
         if (device.GetPress(SteamVR_Controller.ButtonMask.Grip)) {
             procedural.transform.position += deltaPosition;
+        }
+
+        //toggle menu pointer on menu button
+        //NOTE: menu pointer actually controlled via VRTK Controller Events script, but we track state here as well to disable other actions
+        if (device.GetPressDown (SteamVR_Controller.ButtonMask.ApplicationMenu)) {
+            controllerState = states.none;
         }
 
         deltaPosition = translationSensitivity * (gameObject.transform.position - oldPosition);
