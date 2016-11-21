@@ -14,6 +14,13 @@ public class triggerScript : MonoBehaviour {
     public int translationSensitivity = 3;
     private float sumScrollDelta;
 
+    public bool isDominantController = false;
+    public GameObject otherController;
+    private triggerScript otherScript;
+    private Vector3 otherPosition;
+    private Vector3 distanceBetweenControllers;
+
+
     private SteamVR_Controller.Device device = null;
 
     public states controllerState;
@@ -32,6 +39,7 @@ public class triggerScript : MonoBehaviour {
         trackedObject = GetComponent<SteamVR_TrackedObject>();
         laser = GetComponent<LaserPointer>();
         oldPosition = gameObject.transform.position;
+        otherScript = otherController.GetComponent<triggerScript> ();
     }
 
     // Update is called once per frame
@@ -42,15 +50,18 @@ public class triggerScript : MonoBehaviour {
             }
         } else {
             //Debug.Log ("pos:" + gameObject.transform.position);
-            if (controllerState == states.rotate) {
-                if (device.GetPressDown(SteamVR_Controller.ButtonMask.Trigger)) {
-                    buildMesh.shouldSnap = false;
-                    buildMesh.triggerDown(gameObject.transform.position);
-                } else if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
-                    buildMesh.triggerHeld(gameObject.transform.position);
-                } else if (device.GetPressUp(SteamVR_Controller.ButtonMask.Trigger)) {
-                    buildMesh.triggerUp();
+            if (controllerState == states.rotate ) {
+                if (otherScript.controllerState != states.rotate || isDominantController) {
+                    if (device.GetPressDown (SteamVR_Controller.ButtonMask.Trigger)) {
+                        buildMesh.shouldSnap = false;
+                        buildMesh.triggerDown (gameObject.transform.position);
+                    } else if (device.GetPress (SteamVR_Controller.ButtonMask.Trigger)) {
+                        buildMesh.triggerHeld (gameObject.transform.position);
+                    } else if (device.GetPressUp (SteamVR_Controller.ButtonMask.Trigger)) {
+                        buildMesh.triggerUp ();
+                    }
                 }
+
                 laser.active = false;
             } else if (controllerState == states.translate) {
                 if (device.GetPress (SteamVR_Controller.ButtonMask.Trigger)) {
