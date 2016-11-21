@@ -78,7 +78,7 @@ public class triggerScript : MonoBehaviour {
         if (device.GetPressDown(SteamVR_Controller.ButtonMask.Touchpad)) {
             Vector2 coords = device.GetAxis(EVRButtonId.k_EButton_SteamVR_Touchpad);
             //if zoom
-            if (coords.x > -.2f && coords.x < .2f) {
+            if (Mathf.Abs(coords.x) < Mathf.Abs(coords.y)) {
                 if (coords.y < 0) {
                     Debug.Log("bottom");
                     //buildMesh.zoomIn (-increment);
