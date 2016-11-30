@@ -9,7 +9,7 @@ Shader "Transparent" {
 	SubShader{
 		Tags{ "Queue" = "Transparent" "IgnoreProjector" = "True" "RenderType" = "Transparent" }
 
-		Cull Off
+		Cull Back
 		LOD 200 // level of detail = diffuse
 		
 		// Write depth only first (https://community.unity.com/t5/Shaders/Transparent-Depth-Shader-good-for-ghosts/td-p/1108978)
