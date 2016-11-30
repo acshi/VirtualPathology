@@ -25,6 +25,8 @@ public class BuildMesh : MonoBehaviour {
     int layerNumber; // Y
     int[] layerPixels;
 
+    float[] meshSize;
+
     // Number of cubes in each of x, y, and z axes
     int[] cubeCounts;
 
@@ -44,10 +46,12 @@ public class BuildMesh : MonoBehaviour {
     int[][][] allTriangles; // [meshIndex][subMeshIndex][triangleIndex]
 
     // For detailed view mode
-    GameObject detailsObject;
-    Mesh detailsMesh;
-    MeshRenderer detailsRenderer;
-    MeshCollider detailsCollider;
+    GameObject[] detailsObjects;
+    Mesh[] detailsMeshes;
+    MeshRenderer[] detailsRenderers;
+    MeshCollider[] detailsColliders;
+    Vector3[][] detailsVertices;
+    Vector2[][] detailsUvs;
 
     List<Texture2D> cachedTextures = new List<Texture2D>();
     List<Plane> cachedTexturePlanes = new List<Plane>();
@@ -71,6 +75,7 @@ public class BuildMesh : MonoBehaviour {
     float snappingZoomIncrement = 0;
 
     int[,] rmLayersXyz = new int[3, 2]; // [xyz index, minMax index]
+    int[,] rmPixelsXyz = new int[3, 2]; // same as above, but with higher resolution for the details view
     //Vector3 positiveAxisZoom; // increase to view inner layers on the + side
     //Vector3 negativeAxisZoom; // for - side.
     float sumDeltaScrollTicks = 0;
@@ -90,7 +95,7 @@ public class BuildMesh : MonoBehaviour {
     float contrast = 1.0f;
     int quality = 2;
 
-    void makeMeshCubes(float xl, float yl, float zl) {
+    void makeMeshCubes() {
         // Number of cubes to make in each dimension: x, y, z
         cubeCounts = new int[] { layerHeight / subcubeSize, (int)Math.Ceiling(yAspectRatio * layerNumber / subcubeSize), layerWidth / subcubeSize };
 
@@ -186,7 +191,9 @@ public class BuildMesh : MonoBehaviour {
                         for (int z = 0; z <= 1; z++) {
                             for (int y = 0; y <= 1; y++) {
                                 for (int x = 0; x <= 1; x++) {
-                                    vertices[vertI] = new Vector3(xl * (cubeXMinMax[x] - 0.5f), yl * (cubeYMinMax[y] - 0.5f) * yAspectRatio, zl * (cubeZMinMax[z] - 0.5f));
+                                    vertices[vertI] = new Vector3(meshSize[0] * (cubeXMinMax[x] - 0.5f),
+                                                                  meshSize[1] * (cubeYMinMax[y] - 0.5f) * yAspectRatio,
+                                                                  meshSize[2] * (cubeZMinMax[z] - 0.5f));
                                     vertices[vertI + 8] = vertices[vertI];
                                     vertices[vertI + 16] = vertices[vertI];
 
@@ -292,105 +299,196 @@ public class BuildMesh : MonoBehaviour {
         }
     }
 
-    void makeDetailedViewMesh(float xl, float yl, float zl) {
-        Mesh mesh;
-        MeshCollider collider;
-        if (detailsObject == null) {
-            GameObject obj = GameObject.Find("detailsMesh");
-            if (obj) {
-                detailsObject = obj;
-                mesh = obj.GetComponent<MeshFilter>().mesh;
-                detailsMesh = mesh;
-
-                detailsRenderer = obj.GetComponent<MeshRenderer>();
-                collider = obj.GetComponent<MeshCollider>();
-                detailsCollider = collider;
-            } else {
-                obj = new GameObject("detailsMesh");
-                obj.SetActive(false);
-                // The child transform will implicitly take the parent one into account
-                // So for the child to have "zero" rotation, it should be set to the parent rotation
-                obj.transform.parent = gameObject.transform;
-                obj.transform.rotation = gameObject.transform.rotation;
-
-                detailsObject = obj;
-                SubmeshEvents submeshEvents = obj.AddComponent<SubmeshEvents>();
-                submeshEvents.buildMesh = this;
-
-                MeshFilter filter = obj.AddComponent<MeshFilter>();
-                mesh = filter.mesh;
-                detailsMesh = mesh;
-
-                detailsRenderer = obj.AddComponent<MeshRenderer>();
-
-                Rigidbody body = obj.AddComponent<Rigidbody>();
-                body.useGravity = false;
-                body.isKinematic = true;
-
-                collider = obj.AddComponent<MeshCollider>();
-                detailsCollider = collider;
-            }
-        } else {
-            mesh = detailsMesh;
-            collider = detailsCollider;
+    void updateDetailsMeshVertices(bool updateToMesh = true) {
+        if (detailsVertices == null) {
+            detailsVertices = new Vector3[3][];
+            detailsUvs = new Vector2[3][];
         }
 
-        int meshTextureCount = layerPixels[0] + layerPixels[1] + layerPixels[2];
-        mesh.subMeshCount = meshTextureCount;
-
-        Vector3[] vertices = new Vector3[meshTextureCount * 4]; // four vertices for a plane.
-        Vector2[] uvs = new Vector2[meshTextureCount * 4];
-
-        int planeI = 0;
-        float[] xyzMins = { -xl / 2, -yl / 2 * yAspectRatio, -zl / 2 };
-        float[] xyzMaxes = { xl / 2, yl / 2 * yAspectRatio, zl / 2 };
-        for (int i = 0; i < layerPixels[0]; i++) {
-            int vertI = planeI * 4;
-            float xVal = ((float)i / layerPixels[0] - 0.5f) * xl;
-            vertices[vertI] = new Vector3(xVal, xyzMins[1], xyzMins[2]);
-            vertices[vertI + 1] = new Vector3(xVal, xyzMaxes[1], xyzMins[2]);
-            vertices[vertI + 2] = new Vector3(xVal, xyzMins[1], xyzMaxes[2]);
-            vertices[vertI + 3] = new Vector3(xVal, xyzMaxes[1], xyzMaxes[2]);
-            planeI++;
-        }
-        for (int i = 0; i < layerPixels[1]; i++) {
-            int vertI = planeI * 4;
-            float yVal = ((float)i / layerPixels[1] - 0.5f) * yl * yAspectRatio;
-            vertices[vertI] = new Vector3(xyzMins[0], yVal, xyzMins[2]);
-            vertices[vertI + 1] = new Vector3(xyzMaxes[0], yVal, xyzMins[2]);
-            vertices[vertI + 2] = new Vector3(xyzMins[0], yVal, xyzMaxes[2]);
-            vertices[vertI + 3] = new Vector3(xyzMaxes[0], yVal, xyzMaxes[2]);
-            planeI++;
-        }
-        for (int i = 0; i < layerPixels[2]; i++) {
-            int vertI = planeI * 4;
-            float zVal = ((float)i / layerPixels[2] - 0.5f) * xl;
-            vertices[vertI] = new Vector3(xyzMins[0], xyzMins[1], zVal);
-            vertices[vertI + 1] = new Vector3(xyzMaxes[0], xyzMins[1], zVal);
-            vertices[vertI + 2] = new Vector3(xyzMins[0], xyzMaxes[1], zVal);
-            vertices[vertI + 3] = new Vector3(xyzMaxes[0], xyzMaxes[1], zVal);
-            planeI++;
-        }
-
-        for (planeI = 0; planeI < meshTextureCount; planeI++) {
-            int vertI = planeI * 4;
-            uvs[vertI] = new Vector2(0, 0);
-            uvs[vertI + 1] = new Vector2(1, 0);
-            uvs[vertI + 2] = new Vector2(0, 1);
-            uvs[vertI + 3] = new Vector2(1, 1);
-        }
-
-        // remove old triangles before changing vertices
-        for (int i = 0; i < mesh.subMeshCount; i++) {
-            mesh.SetTriangles(new int[0], i);
-        }
-
-        mesh.vertices = vertices;
-        mesh.uv = uvs;
-
-        int submeshI = 0;
         for (int axis = 0; axis < 3; axis++) {
-            for (int i = 0; i < layerPixels[axis]; i++) {
+            Vector3[] vertices = detailsVertices[axis];
+            Vector2[] uvs = detailsUvs[axis];
+            if (vertices == null) {
+                int meshTextureCount = layerPixels[axis];
+                vertices = new Vector3[meshTextureCount * 4]; // four vertices for a plane.
+                uvs = new Vector2[meshTextureCount * 4];
+                detailsVertices[axis] = vertices;
+                detailsUvs[axis] = uvs;
+            }
+
+            int planeI = 0;
+            // We subtract 0.5f / layerPixels[axis] so that crossing layers do not obscure each other
+            // This amount is equal to half the distance between two consecutive layers -- effectively an epsilon
+            float[] xyzMins = { meshSize[0] / 2 - 0.5f / layerPixels[0] - (float)rmPixelsXyz[0, 1] / layerPixels[0],
+                              -(meshSize[1] / 2 * yAspectRatio - 0.5f / layerPixels[1] - (float)rmPixelsXyz[1, 0] / layerPixels[1]),
+                              -(meshSize[2] / 2 - 0.5f / layerPixels[2] - (float)rmPixelsXyz[2, 0] / layerPixels[2]) };
+            float[] xyzMaxes = { -(meshSize[0] / 2 - 0.5f / layerPixels[0] - (float)rmPixelsXyz[0, 0] / layerPixels[0]),
+                                   meshSize[1] / 2 * yAspectRatio - 0.5f / layerPixels[1] - (float)rmPixelsXyz[1, 1] / layerPixels[1],
+                                   meshSize[2] / 2 - 0.5f / layerPixels[2] - (float)rmPixelsXyz[2, 1] / layerPixels[2] };
+            switch (axis) {
+                case 0:
+                    for (int i = 0; i < layerPixels[0]; i++) {
+                        int vertI = planeI * 4;
+
+                        if (i < rmPixelsXyz[0, 1] || i > layerPixels[0] - 1 - rmPixelsXyz[0, 0]) {
+                            vertices[vertI] = Vector3.zero;
+                            vertices[vertI + 1] = Vector3.zero;
+                            vertices[vertI + 2] = Vector3.zero;
+                            vertices[vertI + 3] = Vector3.zero;
+                        } else {
+                            float xVal = -((float)i / (layerPixels[0] - 1) - 0.5f) * meshSize[0];
+                            vertices[vertI] = new Vector3(xVal, xyzMins[1], xyzMins[2]);
+                            vertices[vertI + 1] = new Vector3(xVal, xyzMaxes[1], xyzMins[2]);
+                            vertices[vertI + 2] = new Vector3(xVal, xyzMins[1], xyzMaxes[2]);
+                            vertices[vertI + 3] = new Vector3(xVal, xyzMaxes[1], xyzMaxes[2]);
+                        }
+
+                        float zMin = (float)rmPixelsXyz[2, 0] / layerPixels[2];
+                        float zMax = 1.0f - (float)rmPixelsXyz[2, 1] / layerPixels[2];
+                        float yMin = (float)rmPixelsXyz[1, 0] / layerPixels[1];
+                        float yMax = 1.0f - (float)rmPixelsXyz[1, 1] / layerPixels[1];
+                        uvs[vertI] = new Vector2(zMin, yMin);
+                        uvs[vertI + 1] = new Vector2(zMin, yMax);
+                        uvs[vertI + 2] = new Vector2(zMax, yMin);
+                        uvs[vertI + 3] = new Vector2(zMax, yMax);
+
+                        planeI++;
+                    }
+                    break;
+                case 1:
+                    for (int i = 0; i < layerPixels[1]; i++) {
+                        int vertI = planeI * 4;
+
+                        if (i < rmPixelsXyz[1, 0] || i > layerPixels[1] - 1 - rmPixelsXyz[1, 1]) {
+                            vertices[vertI] = Vector3.zero;
+                            vertices[vertI + 1] = Vector3.zero;
+                            vertices[vertI + 2] = Vector3.zero;
+                            vertices[vertI + 3] = Vector3.zero;
+                        } else {
+                            float yVal = ((float)i / (layerPixels[1] - 1) - 0.5f) * meshSize[1] * yAspectRatio;
+                            vertices[vertI] = new Vector3(xyzMins[0], yVal, xyzMins[2]);
+                            vertices[vertI + 1] = new Vector3(xyzMaxes[0], yVal, xyzMins[2]);
+                            vertices[vertI + 2] = new Vector3(xyzMins[0], yVal, xyzMaxes[2]);
+                            vertices[vertI + 3] = new Vector3(xyzMaxes[0], yVal, xyzMaxes[2]);
+                        }
+
+                        float zMin = (float)rmPixelsXyz[2, 0] / layerPixels[2];
+                        float zMax = 1.0f - (float)rmPixelsXyz[2, 1] / layerPixels[2];
+                        float xMin = (float)rmPixelsXyz[0, 0] / layerPixels[0];
+                        float xMax = 1.0f - (float)rmPixelsXyz[0, 1] / layerPixels[0];
+                        uvs[vertI] = new Vector2(zMin, xMax);
+                        uvs[vertI + 1] = new Vector2(zMin, xMin);
+                        uvs[vertI + 2] = new Vector2(zMax, xMax);
+                        uvs[vertI + 3] = new Vector2(zMax, xMin);
+
+                        planeI++;
+                    }
+                    break;
+                case 2:
+                    for (int i = 0; i < layerPixels[2]; i++) {
+                        int vertI = planeI * 4;
+
+                        if (i < rmPixelsXyz[2, 0] || i > layerPixels[2] - 1 - rmPixelsXyz[2, 1]) {
+                            vertices[vertI] = Vector3.zero;
+                            vertices[vertI + 1] = Vector3.zero;
+                            vertices[vertI + 2] = Vector3.zero;
+                            vertices[vertI + 3] = Vector3.zero;
+                        } else {
+                            float zVal = ((float)i / (layerPixels[2] - 1) - 0.5f) * meshSize[2];
+                            vertices[vertI] = new Vector3(xyzMins[0], xyzMins[1], zVal);
+                            vertices[vertI + 1] = new Vector3(xyzMaxes[0], xyzMins[1], zVal);
+                            vertices[vertI + 2] = new Vector3(xyzMins[0], xyzMaxes[1], zVal);
+                            vertices[vertI + 3] = new Vector3(xyzMaxes[0], xyzMaxes[1], zVal);
+                        }
+                        
+                        float xMin = (float)rmPixelsXyz[0, 0] / layerPixels[0];
+                        float xMax = 1.0f - (float)rmPixelsXyz[0, 1] / layerPixels[0];
+                        float yMin = (float)rmPixelsXyz[1, 0] / layerPixels[1];
+                        float yMax = 1.0f - (float)rmPixelsXyz[1, 1] / layerPixels[1];
+                        uvs[vertI] = new Vector2(xMax, yMin);
+                        uvs[vertI + 1] = new Vector2(xMin, yMin);
+                        uvs[vertI + 2] = new Vector2(xMax, yMax);
+                        uvs[vertI + 3] = new Vector2(xMin, yMax);
+
+                        planeI++;
+                    }
+                    break;
+            }
+
+            if (updateToMesh) {
+                detailsMeshes[axis].vertices = vertices;
+                detailsMeshes[axis].uv = uvs;
+            }
+        }
+    }
+
+    void makeDetailedViewMeshes() {
+        if (detailsObjects == null) {
+            detailsObjects = new GameObject[3];
+            detailsMeshes = new Mesh[3];
+            detailsRenderers = new MeshRenderer[3];
+            detailsColliders = new MeshCollider[3];
+            detailsVertices = new Vector3[3][];
+            detailsUvs = new Vector2[3][];
+        }
+
+        updateDetailsMeshVertices(false);
+
+        for (int axis = 0; axis < 3; axis++) {
+            Mesh mesh;
+            MeshCollider collider;
+
+            if (detailsObjects[axis] != null) {
+                mesh = detailsMeshes[axis];
+                collider = detailsColliders[axis];
+            } else {
+                GameObject obj = GameObject.Find("detailsMesh" + axis);
+                if (obj) {
+                    detailsObjects[axis] = obj;
+                    mesh = obj.GetComponent<MeshFilter>().mesh;
+                    detailsMeshes[axis] = mesh;
+
+                    detailsRenderers[axis] = obj.GetComponent<MeshRenderer>();
+                    collider = obj.GetComponent<MeshCollider>();
+                    detailsColliders[axis] = collider;
+                } else {
+                    obj = new GameObject("detailsMesh" + axis);
+                    // The child transform will implicitly take the parent one into account
+                    // So for the child to have "zero" rotation, it should be set to the parent rotation
+                    obj.transform.parent = gameObject.transform;
+                    obj.transform.rotation = gameObject.transform.rotation;
+
+                    detailsObjects[axis] = obj;
+                    SubmeshEvents submeshEvents = obj.AddComponent<SubmeshEvents>();
+                    submeshEvents.buildMesh = this;
+
+                    MeshFilter filter = obj.AddComponent<MeshFilter>();
+                    mesh = filter.mesh;
+                    detailsMeshes[axis] = mesh;
+
+                    detailsRenderers[axis] = obj.AddComponent<MeshRenderer>();
+                    detailsRenderers[axis].enabled = false;
+
+                    Rigidbody body = obj.AddComponent<Rigidbody>();
+                    body.useGravity = false;
+                    body.isKinematic = true;
+
+                    collider = obj.AddComponent<MeshCollider>();
+                    detailsColliders[axis] = collider;
+                }
+            }
+            
+            mesh.subMeshCount = layerPixels[axis];
+
+            // remove old triangles before changing vertices
+            for (int i = 0; i < mesh.subMeshCount; i++) {
+                mesh.SetTriangles(new int[0], i);
+            }
+            
+            mesh.vertices = detailsVertices[axis];
+            mesh.uv = detailsUvs[axis];
+            
+            for (int submeshI = 0; submeshI < layerPixels[axis]; submeshI++) {
                 int[] triangles = new int[12];
                 int vertI = submeshI * 4;
                 triangles[0] = vertI;
@@ -410,11 +508,10 @@ public class BuildMesh : MonoBehaviour {
                 triangles[11] = vertI + 1;
 
                 mesh.SetTriangles(triangles, submeshI);
-                submeshI++;
             }
-        }
 
-        collider.sharedMesh = mesh;
+            collider.sharedMesh = mesh;
+        }
     }
 
     void loadLayerFiles() {
@@ -490,20 +587,63 @@ public class BuildMesh : MonoBehaviour {
     void setupTextures() {
         Material baseMaterial = baseRenderer.material;
 
-        for (int meshI = 0; meshI < meshes.Length; meshI++) {
-            Mesh mesh = meshes[meshI];
-            MeshRenderer meshRend = renderers[meshI];
+        cachedTexturePlanes.Clear();
+        cachedTextures.Clear();
+        
+        // Set the textures. We should only ever do this once, because it is so slow!
+        // This mesh shouldn't ever really change so we only do this if absolutely necessary.
+        if (detailsRenderers[0].materials[0].mainTexture == null) {
+            for (int axis = 0; axis < 3; axis++) {
+                detailsRenderers[axis].materials = new Material[detailsMeshes[axis].subMeshCount];
+                for (int i = 0; i < detailsRenderers[axis].materials.Length; i++) {
+                    detailsRenderers[axis].materials[i] = new Material(baseMaterial);
+                    detailsRenderers[axis].materials[i].shader = baseMaterial.shader;
+                    detailsRenderers[axis].materials[i].hideFlags = HideFlags.HideAndDontSave | HideFlags.HideInInspector;
+                }
+                
+                Vector3 planeDirection = new Vector3(axis == 0 ? 1 : 0, axis == 1 ? 1 : 0, axis == 2 ? 1 : 0);
 
-            meshRend.materials = new Material[mesh.subMeshCount];
-            for (int i = 0; i < meshRend.materials.Length; i++) {
-                meshRend.materials[i] = new Material(baseMaterial);
-                meshRend.materials[i].shader = baseMaterial.shader;
-                meshRend.materials[i].hideFlags = HideFlags.HideAndDontSave | HideFlags.HideInInspector;
+                int count = layerPixels[axis];
+                for (int submeshI = 0; submeshI < count; submeshI++) {
+                    detailsRenderers[axis].materials[submeshI].mainTexture = textureForPlane(new Plane(planeDirection, (float)submeshI / (count - 1)));
+                }
+            }
+        }
+
+        // Only update when the textures should change due to a different detail level
+        if (true || renderers[0].materials.Length != meshes[0].subMeshCount) {
+            for (int meshI = 0; meshI < meshes.Length; meshI++) {
+                Mesh mesh = meshes[meshI];
+                MeshRenderer meshRend = renderers[meshI];
+
+                meshRend.materials = new Material[mesh.subMeshCount];
+                for (int i = 0; i < meshRend.materials.Length; i++) {
+                    meshRend.materials[i] = new Material(baseMaterial);
+                    meshRend.materials[i].shader = baseMaterial.shader;
+                    meshRend.materials[i].hideFlags = HideFlags.HideAndDontSave | HideFlags.HideInInspector;
+                }
+            }
+
+            for (int meshI = 0; meshI < meshes.Length; meshI++) {
+                MeshRenderer meshRend = renderers[meshI];
+
+                int submeshI = 0;
+                // loop x, y, z
+                for (int axis = 0; axis < 3; axis++) {
+                    Vector3 planeDirection = new Vector3(axis == 0 ? 1 : 0, axis == 1 ? 1 : 0, axis == 2 ? 1 : 0);
+
+                    int count = cubeCounts[axis];
+                    // Only pass through those index values for this specific set of z values
+                    for (int i = (axis == 2) ? meshI * zPerMesh : 0; i < count && ((axis == 2) ? i < (meshI + 1) * zPerMesh : true); i++) {
+                        meshRend.materials[submeshI].mainTexture = textureForPlane(new Plane(planeDirection, (float)i / (count - 1)));
+                        submeshI++;
+                    }
+                }
             }
         }
     }
 
-    void updateMaterials() {
+    void updateMaterials(bool force = false) {
         // Camera direction in the local space of the mesh
         Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
         float[] cameraDirXyz = new float[3] { cameraDirection.x, cameraDirection.y, cameraDirection.z };
@@ -512,24 +652,22 @@ public class BuildMesh : MonoBehaviour {
         int mainAxisSign;
         getMainAxisAndSign(cameraDirection, out mainAxis, out mainAxisSign);
 
-        if (materialsMainAxis == mainAxis && materialsAxisSign == mainAxisSign) {
+        if (!force && materialsMainAxis == mainAxis && materialsAxisSign == mainAxisSign) {
             return;
         }
         materialsMainAxis = mainAxis;
         materialsAxisSign = mainAxisSign;
 
         if (useDetailedViewMode) {
-            int submeshI = 0;
             for (int axis = 0; axis < 3; axis++) {
-                Vector3 planeDirection = new Vector3(axis == 0 ? 1 : 0, axis == 1 ? 1 : 0, axis == 2 ? 1 : 0);
-                bool notMain = axis != mainAxis;
-
-                int count = layerPixels[axis];
-                for (int i = 0; i < layerPixels[i]; i++) {
-                    int drawIndex = (int)(2000 * -cameraDirXyz[axis] * i / count * (axis == 0 ? -1 : 1)) + 2000;
-                    detailsRenderer.materials[submeshI].renderQueue = 3000 + drawIndex + (notMain ? 3000 : 0);
-                    detailsRenderer.materials[submeshI].mainTexture = textureForPlane(new Plane(planeDirection, (float)i / (count - 1)));
-                    submeshI++;
+                bool isMain = axis == mainAxis;
+                detailsRenderers[axis].enabled = isMain;
+                if (isMain) {
+                    int count = layerPixels[axis];
+                    for (int submeshI = 0; submeshI < count; submeshI++) {
+                        int drawIndex = (int)(2000 * -cameraDirXyz[axis] * submeshI / count * (axis == 0 ? -1 : 1)) + 2000;
+                        detailsRenderers[axis].materials[submeshI].renderQueue = 3000 + drawIndex;
+                    }
                 }
             }
         } else {
@@ -539,7 +677,6 @@ public class BuildMesh : MonoBehaviour {
                 int submeshI = 0;
                 // loop x, y, z
                 for (int axis = 0; axis < 3; axis++) {
-                    Vector3 planeDirection = new Vector3(axis == 0 ? 1 : 0, axis == 1 ? 1 : 0, axis == 2 ? 1 : 0);
                     bool notMain = axis != mainAxis;
 
                     int count = cubeCounts[axis];
@@ -549,7 +686,6 @@ public class BuildMesh : MonoBehaviour {
                         // render back to front, and that the main axis faces also render before the other axes
                         int drawIndex = (int)(2000 * -cameraDirXyz[axis] * i / count * (axis == 0 ? -1 : 1)) + 2000;
                         meshRend.materials[submeshI].renderQueue = 3000 + drawIndex + (notMain ? 3000 : 0);
-                        meshRend.materials[submeshI].mainTexture = textureForPlane(new Plane(planeDirection, (float)i / (count - 1)));
                         submeshI++;
                     }
                 }
@@ -572,11 +708,9 @@ public class BuildMesh : MonoBehaviour {
     }
 
     void Recreate() {
-        cachedTextures.Clear();
-        cachedTexturePlanes.Clear();
-
-        makeMeshCubes(scaleFactor * layerWidth, scaleFactor * layerNumber, scaleFactor * layerHeight);
-        makeDetailedViewMesh(scaleFactor * layerWidth, scaleFactor * layerNumber, scaleFactor * layerHeight);
+        meshSize = new float[3]{ scaleFactor * layerWidth, scaleFactor * layerNumber, scaleFactor * layerHeight };
+        makeMeshCubes();
+        makeDetailedViewMeshes();
 
         setupTextures();
 
@@ -985,11 +1119,13 @@ public class BuildMesh : MonoBehaviour {
             }
         }
 
-        Material[] detailsMaterials = detailsRenderer.materials;
-        for (int matI = 0; matI < detailsMaterials.Length; matI++) {
-            detailsMaterials[matI].SetInt("_UseTransferFunction", transferFunctionEnabled ? 1 : 0);
-            detailsMaterials[matI].SetFloat("_TransparencyScalar", transparencyScalar);
-            detailsMaterials[matI].SetFloat("_Contrast", contrast * 3);
+        for (int axis = 0; axis < 3; axis++) {
+            Material[] detailsMaterials = detailsRenderers[axis].materials;
+            for (int matI = 0; matI < detailsMaterials.Length; matI++) {
+                detailsMaterials[matI].SetInt("_UseTransferFunction", transferFunctionEnabled ? 1 : 0);
+                detailsMaterials[matI].SetFloat("_TransparencyScalar", transparencyScalar);
+                detailsMaterials[matI].SetFloat("_Contrast", contrast * 3);
+            }
         }
     }
 
@@ -1030,8 +1166,7 @@ public class BuildMesh : MonoBehaviour {
         }
     }
 
-    public void orthogonalScroll(int layers) {
-        Debug.Log("scroll");
+    public void orthogonalScroll(int pixels) {
         // Camera direction in the local space of the mesh
         Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
 
@@ -1039,8 +1174,20 @@ public class BuildMesh : MonoBehaviour {
         int sign;
         getMainAxisAndSign(cameraDirection, out axis, out sign);
 
+        // Keep the end number of pixels non-zero so the mesh never completely disappears
+        int newRmPixels = (int)constrain(rmPixelsXyz[axis, sign] + pixels, 0, layerPixels[axis] - 1 - rmPixelsXyz[axis, (sign + 1) % 2]);
+        if (newRmPixels == rmPixelsXyz[axis, sign]) {
+            return;
+        }
+        rmPixelsXyz[axis, sign] = newRmPixels;
+        if (useDetailedViewMode) {
+            updateDetailsMeshVertices();
+        }
+
+        // Derive the number of larger cube layers removed from the number of pixels removed
+        int newRmLayers = (int)((float)newRmPixels * cubeCounts[axis] / layerPixels[axis]);
         // Keep the end number of layers such that the two ends of the cube do not pass each other, or go beyond the cube
-        int newRmLayers = (int)constrain(rmLayersXyz[axis, sign] + layers, 0, cubeCounts[axis] - 1 - rmLayersXyz[axis, (sign + 1) % 2]);
+        newRmLayers = (int)constrain(newRmLayers, 0, cubeCounts[axis] - 1 - rmLayersXyz[axis, (sign + 1) % 2]);
         // The number to actually modify now
         int layerCount = Math.Abs(newRmLayers - rmLayersXyz[axis, sign]);
 
@@ -1052,7 +1199,7 @@ public class BuildMesh : MonoBehaviour {
             // We subtract an extra layer here because you when layers is negative
             // we are actually adding the _next_ layer back, which is not visible
             // When removing layers, we remove the current visible layer, so the number isn't changed.
-            int deltaL = layers < 0 ? -l - 1 : l;
+            int deltaL = pixels < 0 ? -l - 1 : l;
             // Cube index is (cubeZI - meshI * zPerMesh) * (cubeCountY * cubeCountX) + cubeYI * cubeCountX + cubeCountX
             int axis2 = (axis + 1) % 3;
             int axis3 = (axis + 2) % 3;
@@ -1077,7 +1224,7 @@ public class BuildMesh : MonoBehaviour {
                     int cubeIndex = relativeCubeZI * (cubeCounts[1] * cubeCounts[0]) + cubeYI * cubeCounts[0] + cubeXI;
 
                     for (int i = 24 * cubeIndex; i < 24 * (cubeIndex + 1); i++) {
-                        if (layers > 0) {
+                        if (pixels > 0) {
                             allVertices[meshI][i] = Vector3.zero;
                         } else {
                             allVertices[meshI][i] = allOriginalVertices[meshI][i];
@@ -1098,13 +1245,17 @@ public class BuildMesh : MonoBehaviour {
     // Update is called once per frame
     void Update() {
         // Manage switching between view modes
-        if (useDetailedViewMode) {
-            if (!detailsObject.activeSelf) {
-                for (int i = 0; i < gameObjects.Length; i++) {
-                    gameObjects[i].SetActive(false);
-                }
-                detailsObject.SetActive(true);
+        if (useDetailedViewMode == renderers[0].enabled) {
+            for (int i = 0; i < gameObjects.Length; i++) {
+                renderers[i].enabled = !useDetailedViewMode;
             }
+            if (!useDetailedViewMode) {
+                for (int axis = 0; axis < 3; axis++) {
+                    detailsRenderers[axis].enabled = false;
+                }
+            }
+            // enabling of details renderers handled individually in updateMaterials
+            updateMaterials(true);
         }
 
         if (Input.GetKeyDown("left shift")) {
