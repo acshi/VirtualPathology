@@ -319,12 +319,12 @@ public class BuildMesh : MonoBehaviour {
             int planeI = 0;
             // We subtract 0.5f / layerPixels[axis] so that crossing layers do not obscure each other
             // This amount is equal to half the distance between two consecutive layers -- effectively an epsilon
-            float[] xyzMins = { meshSize[0] / 2 - 0.5f / layerPixels[0] - (float)rmPixelsXyz[0, 1] / layerPixels[0],
-                              -(meshSize[1] / 2 * yAspectRatio - 0.5f / layerPixels[1] - (float)rmPixelsXyz[1, 0] / layerPixels[1]),
-                              -(meshSize[2] / 2 - 0.5f / layerPixels[2] - (float)rmPixelsXyz[2, 0] / layerPixels[2]) };
-            float[] xyzMaxes = { -(meshSize[0] / 2 - 0.5f / layerPixels[0] - (float)rmPixelsXyz[0, 0] / layerPixels[0]),
-                                   meshSize[1] / 2 * yAspectRatio - 0.5f / layerPixels[1] - (float)rmPixelsXyz[1, 1] / layerPixels[1],
-                                   meshSize[2] / 2 - 0.5f / layerPixels[2] - (float)rmPixelsXyz[2, 1] / layerPixels[2] };
+            float[] xyzMins = { meshSize[0] * (0.5f - 0.5f / layerPixels[0] - (float)rmPixelsXyz[0, 1] / layerPixels[0]),
+                              -yAspectRatio * meshSize[1] * (0.5f - 0.5f / layerPixels[1] - (float)rmPixelsXyz[1, 0] / layerPixels[1]),
+                              -meshSize[2] * (0.5f - 0.5f / layerPixels[2] - (float)rmPixelsXyz[2, 0] / layerPixels[2]) };
+            float[] xyzMaxes = { -meshSize[0] * (0.5f - 0.5f / layerPixels[0] - (float)rmPixelsXyz[0, 0] / layerPixels[0]),
+                                   yAspectRatio * meshSize[1] * (0.5f - 0.5f / layerPixels[1] - (float)rmPixelsXyz[1, 1] / layerPixels[1]),
+                                   meshSize[2] * (0.5f - 0.5f / layerPixels[2] - (float)rmPixelsXyz[2, 1] / layerPixels[2]) };
             switch (axis) {
                 case 0:
                     for (int i = 0; i < layerPixels[0]; i++) {
@@ -1254,7 +1254,10 @@ public class BuildMesh : MonoBehaviour {
                     detailsRenderers[axis].enabled = false;
                 }
             }
-            // enabling of details renderers handled individually in updateMaterials
+            if (useDetailedViewMode) {
+                updateDetailsMeshVertices();
+            }
+            // enabling of the correct details renderers is in updateMaterials
             updateMaterials(true);
         }
 
