@@ -587,8 +587,8 @@ public class BuildMesh : MonoBehaviour {
     void setupTextures() {
         Material baseMaterial = baseRenderer.material;
 
-        cachedTexturePlanes.Clear();
-        cachedTextures.Clear();
+        //cachedTexturePlanes.Clear();
+        //cachedTextures.Clear();
         
         // Set the textures. We should only ever do this once, because it is so slow!
         // This mesh shouldn't ever really change so we only do this if absolutely necessary.
@@ -611,7 +611,7 @@ public class BuildMesh : MonoBehaviour {
         }
 
         // Only update when the textures should change due to a different detail level
-        if (true || renderers[0].materials.Length != meshes[0].subMeshCount) {
+        if (renderers[0].materials.Length != meshes[0].subMeshCount) {
             for (int meshI = 0; meshI < meshes.Length; meshI++) {
                 Mesh mesh = meshes[meshI];
                 MeshRenderer meshRend = renderers[meshI];
