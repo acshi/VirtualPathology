@@ -10,7 +10,7 @@ public class triggerScript : MonoBehaviour {
     private SteamVR_TrackedObject trackedObject;
     private Vector3 deltaPosition;
     private Vector3 oldPosition;
-    public int slideSensitivity = 240;
+    public int slideSensitivity = 2000;
     public int translationSensitivity = 5;
     private float sumScrollDelta;
 
