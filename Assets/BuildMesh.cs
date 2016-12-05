@@ -1010,6 +1010,10 @@ public class BuildMesh : MonoBehaviour {
         snappingRotation = Quaternion.Euler(rot);
     }
 
+	public void triggerLookRotation(Vector3 currentPosition) {
+		gameObject.transform.rotation = Quaternion.LookRotation(gameObject.transform.position - currentPosition);
+	}
+
     //TODO: write some nice, modular code here instead of copy pasting
     public void triggerDown(Vector3 initialPosition) {
         // If the allTriangles array has been mangled by a code reload, recreate all the missing arrays

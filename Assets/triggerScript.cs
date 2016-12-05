@@ -61,11 +61,12 @@ public class triggerScript : MonoBehaviour {
                 if (otherScript.controllerState != states.rotate || isDominantController) {
                     if (device.GetPressDown (SteamVR_Controller.ButtonMask.Trigger)) {
                         buildMesh.shouldSnap = false;
-                        buildMesh.triggerDown (gameObject.transform.position);
+                        //buildMesh.triggerDown (gameObject.transform.position);
                     } else if (device.GetPress (SteamVR_Controller.ButtonMask.Trigger)) {
-                        buildMesh.triggerHeld (gameObject.transform.position);
+                        //buildMesh.triggerHeld (gameObject.transform.position);
+						buildMesh.triggerLookRotation(gameObject.transform.position);
                     } else if (device.GetPressUp (SteamVR_Controller.ButtonMask.Trigger)) {
-                        buildMesh.triggerUp ();
+                        //buildMesh.triggerUp ();
                     }
                 }
 
