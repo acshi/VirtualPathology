@@ -44,7 +44,7 @@ public class triggerScript : MonoBehaviour {
         laser = GetComponent<LaserPointer>();
         oldPosition = gameObject.transform.position;
         otherScript = otherController.GetComponent<triggerScript> ();
-        canvas.SetActive (false);
+        canvas.GetComponent<Canvas> ().enabled = false;
         //sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         //sphere.transform.position = Vector3.zero;
     }
@@ -128,7 +128,7 @@ public class triggerScript : MonoBehaviour {
         //NOTE: menu pointer actually controlled via VRTK Controller Events script, but we track state here as well to disable other actions
         if (device.GetPressDown (SteamVR_Controller.ButtonMask.ApplicationMenu)) {
             controllerState = states.none;
-            canvas.SetActive(true);
+            canvas.GetComponent<Canvas> ().enabled = true;
             canvas.transform.position = Camera.main.transform.position + Camera.main.transform.forward; //* menuDistance;
             //canvas.transform.LookAt(gameObject.transform);
             canvas.transform.rotation = Quaternion.LookRotation(canvas.transform.position - Camera.main.transform.position);
@@ -145,7 +145,7 @@ public class triggerScript : MonoBehaviour {
             //Debug.Log ("forward: " + mainCamera.transform.forward);
         }
         if (device.GetPressUp (SteamVR_Controller.ButtonMask.ApplicationMenu)) {
-            canvas.SetActive (false);
+            canvas.GetComponent<Canvas> ().enabled = false;
         }
         deltaPosition = translationSensitivity * (gameObject.transform.position - oldPosition);
         oldPosition = gameObject.transform.position;
