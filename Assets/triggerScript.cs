@@ -7,6 +7,8 @@ public class triggerScript : MonoBehaviour {
     public BuildMesh buildMesh;
     public GameObject procedural;
 
+    public Vector3 CanvasRelativePosition = new Vector3(1.0f, 0.5f, -0.6f);
+
     private SteamVR_TrackedObject trackedObject;
     private Vector3 deltaPosition;
     private Vector3 oldPosition;
@@ -20,7 +22,7 @@ public class triggerScript : MonoBehaviour {
     private Vector3 otherPosition;
     private Vector3 distanceBetweenControllers;
     //activate or deactive canvas
-    public GameObject canvas;
+    public Canvas canvas;
     public GameObject mainCamera;
     GameObject sphere;
     public float menuDistance = .8f;
@@ -129,24 +131,12 @@ public class triggerScript : MonoBehaviour {
         //NOTE: menu pointer actually controlled via VRTK Controller Events script, but we track state here as well to disable other actions
         if (device.GetPressDown (SteamVR_Controller.ButtonMask.ApplicationMenu)) {
             controllerState = states.none;
-            canvas.GetComponent<Canvas> ().enabled = true;
-            canvas.GetComponent<Canvas>().transform.position = Camera.main.transform.position + Camera.main.transform.forward;// * menuDistance;
-            //canvas.transform.LookAt(gameObject.transform);
+            canvas.enabled = true;
+            canvas.transform.position = Camera.main.transform.TransformPoint(CanvasRelativePosition);
             canvas.transform.rotation = Quaternion.LookRotation(canvas.transform.position - Camera.main.transform.position);
-            //canvas.transform.localPosition = Vector3.zero;
-            //canvas.transform.localRotation = Quaternion.identity;
-            
-            //canvas.transform.rotation = mainCamera.transform.rotation;
-            Debug.Log ("camera global pos: " + mainCamera.transform.position + ", local pos: " + mainCamera.transform.localPosition);
-            Debug.Log ("camera global pos: " + Camera.main.transform.position + ", local pos: " + Camera.main.transform.localPosition);
-            //Debug.Log ("camera global rot: " + mainCamera.transform.rotation + ", local rot: " + mainCamera.transform.localRotation);
-            //Debug.Log ("controller global pos: " + gameObject.transform.position + ", local pos: " + gameObject.transform.localPosition);
-            Debug.Log ("canvas global pos: " + canvas.transform.position + ", local pos: " + canvas.transform.localPosition);
-            Debug.Log ("canvas global rot: " + canvas.transform.rotation + ", local rot: " + canvas.transform.localRotation);
-            //Debug.Log ("forward: " + mainCamera.transform.forward);
         }
         if (device.GetPressUp (SteamVR_Controller.ButtonMask.ApplicationMenu)) {
-            canvas.GetComponent<Canvas> ().enabled = false;
+            canvas.enabled = false;
         }
         deltaPosition = translationSensitivity * (gameObject.transform.position - oldPosition);
         oldPosition = gameObject.transform.position;
