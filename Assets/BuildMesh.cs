@@ -95,6 +95,9 @@ public class BuildMesh : MonoBehaviour {
     float contrast = 1.0f;
     int quality = 2;
 
+    public Vector3 lockPosition = Vector3.zero;
+    public GameObject mainCamera;
+
     void makeMeshCubes() {
         // Number of cubes to make in each dimension: x, y, z
         cubeCounts = new int[] { layerHeight / subcubeSize, (int)Math.Ceiling(yAspectRatio * layerNumber / subcubeSize), layerWidth / subcubeSize };
@@ -701,6 +704,7 @@ public class BuildMesh : MonoBehaviour {
         baseRenderer = GetComponent<MeshRenderer>();
 
         Recreate();
+        lockPosition = gameObject.transform.position = mainCamera.transform.position + mainCamera.transform.forward * 3;
     }
 
     float constrain(float val, float min, float max) {
@@ -1315,7 +1319,7 @@ public class BuildMesh : MonoBehaviour {
             gameObject.transform.rotation = Quaternion.Slerp(gameObject.transform.rotation, snappingRotation, Time.deltaTime * 4);
         }
         if (shouldReset) {
-            gameObject.transform.position = Vector3.Slerp (gameObject.transform.position, Vector3.zero, Time.deltaTime * 4);
+            gameObject.transform.position = Vector3.Slerp (gameObject.transform.position, lockPosition, Time.deltaTime * 4);
         }
 
         Vector3 newCameraPos = Camera.main.transform.position;

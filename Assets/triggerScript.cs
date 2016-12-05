@@ -23,7 +23,7 @@ public class triggerScript : MonoBehaviour {
     public GameObject canvas;
     public GameObject mainCamera;
     GameObject sphere;
-    public float menuDistance = .002f;
+    public float menuDistance = .8f;
 
     private SteamVR_Controller.Device device = null;
 
@@ -130,7 +130,7 @@ public class triggerScript : MonoBehaviour {
         if (device.GetPressDown (SteamVR_Controller.ButtonMask.ApplicationMenu)) {
             controllerState = states.none;
             canvas.GetComponent<Canvas> ().enabled = true;
-            canvas.transform.position = Camera.main.transform.position + Camera.main.transform.forward; //* menuDistance;
+            canvas.GetComponent<Canvas>().transform.position = Camera.main.transform.position + Camera.main.transform.forward;// * menuDistance;
             //canvas.transform.LookAt(gameObject.transform);
             canvas.transform.rotation = Quaternion.LookRotation(canvas.transform.position - Camera.main.transform.position);
             //canvas.transform.localPosition = Vector3.zero;
