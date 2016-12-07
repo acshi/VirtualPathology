@@ -12,8 +12,8 @@ public class triggerScript : MonoBehaviour {
     private SteamVR_TrackedObject trackedObject;
     private Vector3 deltaPosition;
     private Vector3 oldPosition;
-    public int slideSensitivity = 10000;
-    public int translationSensitivity = 5;
+    float slideSensitivity = 400;
+    float translationSensitivity = 5;
     private float sumScrollDelta;
 
     public bool isDominantController = false;
@@ -80,7 +80,7 @@ public class triggerScript : MonoBehaviour {
                 }
                 laser.active = false;
             } else if (controllerState == states.shoot) {
-                laser.active = true;
+                //laser.active = true;
             } else if (controllerState == states.slice) {
                 if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
 
@@ -132,8 +132,8 @@ public class triggerScript : MonoBehaviour {
         if (device.GetPressDown (SteamVR_Controller.ButtonMask.ApplicationMenu)) {
             controllerState = states.none;
             canvas.enabled = true;
-            canvas.transform.position = Camera.main.transform.TransformPoint(CanvasRelativePosition);
-            canvas.transform.rotation = Quaternion.LookRotation(canvas.transform.position - Camera.main.transform.position);
+            canvas.transform.position = mainCamera.transform.TransformPoint(CanvasRelativePosition);
+            canvas.transform.rotation = Quaternion.LookRotation(canvas.transform.position - mainCamera.transform.position);
         }
         if (device.GetPressUp (SteamVR_Controller.ButtonMask.ApplicationMenu)) {
             canvas.enabled = false;

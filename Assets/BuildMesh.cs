@@ -7,14 +7,13 @@ using UnityEngine.UI;
 
 public class BuildMesh : MonoBehaviour {
     public string ImageLayerDirectory = "human_kidney_png";
-    public bool loadFromStreamingAssets = true;
 
     // Selects the layered view mode as opposed to the cube-based view mode
     public bool useDetailedViewMode = true;
 
     public float yAspectRatio = 2.8f;
-    public int subcubeSize = 64; // each cube has x, y, and z of this dimension.
-    const float rotationSensitivity = 0.3f;
+    public int subcubeSize = 30; // each cube has x, y, and z of this dimension.
+    const float mouseRotationSensitivity = 0.3f;
     const float triggerRotationSensitivity = 300f;
     const float baseCameraZ = -2;
 
@@ -72,7 +71,6 @@ public class BuildMesh : MonoBehaviour {
     public bool shouldSnap = false;
     public bool shouldReset = false;
     Quaternion snappingRotation = new Quaternion();
-    float snappingZoomIncrement = 0;
 
     int[,] rmLayersXyz = new int[3, 2]; // [xyz index, minMax index]
     int[,] rmPixelsXyz = new int[3, 2]; // same as above, but with higher resolution for the details view
@@ -86,14 +84,11 @@ public class BuildMesh : MonoBehaviour {
     public Slider transparencyScalarSlider;
     public Text contrastText;
     public Slider contrastSlider;
-    public Text qualityText;
-    public Slider qualitySlider;
 
     // Shader properties
     bool transferFunctionEnabled = true;
     float transparencyScalar = 0.8f;
     float contrast = 1.0f;
-    int quality = 2;
 
     public Vector3 lockPosition = Vector3.zero;
     public GameObject mainCamera;
@@ -101,8 +96,6 @@ public class BuildMesh : MonoBehaviour {
     void makeMeshCubes() {
         // Number of cubes to make in each dimension: x, y, z
         cubeCounts = new int[] { layerHeight / subcubeSize, (int)Math.Ceiling(yAspectRatio * layerNumber / subcubeSize), layerWidth / subcubeSize };
-
-        Debug.Log(cubeCounts[0] + " " + cubeCounts[1] + " " + cubeCounts[2]);
         int totalCubeCount = cubeCounts[0] * cubeCounts[1] * cubeCounts[2];
 
         // Each mesh is limited to 65536 vertices. How many meshes are needed to cover all vertices?
@@ -141,10 +134,10 @@ public class BuildMesh : MonoBehaviour {
                     colliders[meshI] = collider;
                 } else {
                     obj = new GameObject("mesh" + meshI);
-                    // The child transform will implicitly take the parent one into account
-                    // So for the child to have "zero" rotation, it should be set to the parent rotation
+                    // Use localRotation instead of rotation (which can also be set, but will implicitly subtract the parent's rotation)
                     obj.transform.parent = gameObject.transform;
-                    obj.transform.rotation = gameObject.transform.rotation;
+                    obj.transform.localRotation = Quaternion.identity;
+                    obj.transform.localPosition = Vector3.zero;
 
                     gameObjects[meshI] = obj;
                     SubmeshEvents submeshEvents = obj.AddComponent<SubmeshEvents>();
@@ -216,8 +209,7 @@ public class BuildMesh : MonoBehaviour {
             for (int i = 0; i < mesh.subMeshCount; i++) {
                 mesh.SetTriangles(new int[0], i);
             }
-
-            Debug.Log("CubeI: " + cubeI);
+            
             allVertices[meshI] = vertices;
             allOriginalVertices[meshI] = (Vector3[])vertices.Clone();
             mesh.vertices = vertices;
@@ -311,8 +303,8 @@ public class BuildMesh : MonoBehaviour {
         for (int axis = 0; axis < 3; axis++) {
             Vector3[] vertices = detailsVertices[axis];
             Vector2[] uvs = detailsUvs[axis];
-            if (vertices == null) {
-                int meshTextureCount = layerPixels[axis];
+            int meshTextureCount = layerPixels[axis];
+            if (vertices == null || vertices.Length != meshTextureCount * 4) {
                 vertices = new Vector3[meshTextureCount * 4]; // four vertices for a plane.
                 uvs = new Vector2[meshTextureCount * 4];
                 detailsVertices[axis] = vertices;
@@ -456,10 +448,10 @@ public class BuildMesh : MonoBehaviour {
                     detailsColliders[axis] = collider;
                 } else {
                     obj = new GameObject("detailsMesh" + axis);
-                    // The child transform will implicitly take the parent one into account
-                    // So for the child to have "zero" rotation, it should be set to the parent rotation
+                    // Use localRotation instead of rotation (which can also be set, but will implicitly subtract the parent's rotation)
                     obj.transform.parent = gameObject.transform;
-                    obj.transform.rotation = gameObject.transform.rotation;
+                    obj.transform.localRotation = Quaternion.identity;
+                    obj.transform.localPosition = Vector3.zero;
 
                     detailsObjects[axis] = obj;
                     SubmeshEvents submeshEvents = obj.AddComponent<SubmeshEvents>();
@@ -517,19 +509,29 @@ public class BuildMesh : MonoBehaviour {
         }
     }
 
+    public void LoadDataset(string newDatasetDirectory) {
+        ImageLayerDirectory = newDatasetDirectory;
+        loadLayerFiles();
+        scaleFactor = 2f / layerWidth;
+        Recreate(true);
+    }
+
     void loadLayerFiles() {
         // The files in the designated folder have the source y-layers
-        string path;
-        if (loadFromStreamingAssets) {
-            path = Path.Combine(Application.streamingAssetsPath, ImageLayerDirectory);
-        } else {
-            path = ImageLayerDirectory;
-        }
+        // Absolute dataset paths will ignore the streaming assets path
+        string path = Path.Combine(Application.streamingAssetsPath, ImageLayerDirectory);
 
         if (!Directory.Exists(path)) {
             Debug.Log("Directory does not exist");
             return;
         }
+
+        // Try to release old textures from memory, if any
+        foreach (Texture tex in cachedTextures) {
+            Destroy(tex);
+        }
+        cachedTextures.Clear();
+        cachedTexturePlanes.Clear();
 
         string[] files = Directory.GetFiles(path, "*.png");
         layers = new Texture2D[files.Length];
@@ -543,9 +545,15 @@ public class BuildMesh : MonoBehaviour {
             cachedTexturePlanes.Add(new Plane(new Vector3(0, 1, 0), 1f - (float)i / (files.Length - 1)));
         }
 
-        layerWidth = layers[0].width;
-        layerHeight = layers[0].height;
-        layerNumber = layers.Length;
+        if (layers.Length == 0) {
+            layerWidth = 0;
+            layerHeight = 0;
+            layerNumber = 0;
+        } else {
+            layerWidth = layers[0].width;
+            layerHeight = layers[0].height;
+            layerNumber = layers.Length;
+        }
 
         layerPixels = new int[3] { layerHeight, layerNumber, layerWidth };
     }
@@ -587,7 +595,12 @@ public class BuildMesh : MonoBehaviour {
         return tex;
     }
 
-    void setupTextures() {
+    void setupTextures(bool forceReset = false) {
+        // do nothing if not yet loaded
+        if (gameObjects == null || gameObjects.Length == 0) {
+            return;
+        }
+
         Material baseMaterial = baseRenderer.material;
 
         //cachedTexturePlanes.Clear();
@@ -595,7 +608,7 @@ public class BuildMesh : MonoBehaviour {
         
         // Set the textures. We should only ever do this once, because it is so slow!
         // This mesh shouldn't ever really change so we only do this if absolutely necessary.
-        if (detailsRenderers[0].materials[0].mainTexture == null) {
+        if (forceReset || detailsRenderers[0].materials[0].mainTexture == null) {
             for (int axis = 0; axis < 3; axis++) {
                 detailsRenderers[axis].materials = new Material[detailsMeshes[axis].subMeshCount];
                 for (int i = 0; i < detailsRenderers[axis].materials.Length; i++) {
@@ -646,7 +659,12 @@ public class BuildMesh : MonoBehaviour {
         }
     }
 
-    void updateMaterials(bool force = false) {
+    void updateRenderOrder(bool force = false) {
+        // do nothing if not yet loaded
+        if (gameObjects == null || gameObjects.Length == 0) {
+            return;
+        }
+
         // Camera direction in the local space of the mesh
         Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
         float[] cameraDirXyz = new float[3] { cameraDirection.x, cameraDirection.y, cameraDirection.z };
@@ -669,6 +687,9 @@ public class BuildMesh : MonoBehaviour {
                     int count = layerPixels[axis];
                     for (int submeshI = 0; submeshI < count; submeshI++) {
                         int drawIndex = (int)(2000 * -cameraDirXyz[axis] * submeshI / count * (axis == 0 ? -1 : 1)) + 2000;
+                        if (detailsRenderers[axis].materials.Length <= submeshI) {
+                            drawIndex++;
+                        }
                         detailsRenderers[axis].materials[submeshI].renderQueue = 3000 + drawIndex;
                     }
                 }
@@ -698,12 +719,8 @@ public class BuildMesh : MonoBehaviour {
 
     // Use this for initialization
     void Start() {
-        loadLayerFiles();
-        scaleFactor = 2f / layerWidth;
-
         baseRenderer = GetComponent<MeshRenderer>();
-
-        Recreate();
+        
         lockPosition = gameObject.transform.position = mainCamera.transform.position + mainCamera.transform.forward * 3;
     }
 
@@ -711,20 +728,17 @@ public class BuildMesh : MonoBehaviour {
         return Math.Min(max, Math.Max(min, val));
     }
 
-    void Recreate() {
+    void Recreate(bool forceResetTextures = false) {
         meshSize = new float[3]{ scaleFactor * layerWidth, scaleFactor * layerNumber, scaleFactor * layerHeight };
         makeMeshCubes();
         makeDetailedViewMeshes();
 
-        setupTextures();
+        setupTextures(forceResetTextures);
 
         // reset back to nothing removed, because the whole mesh has changed
         rmLayersXyz = new int[3, 2];
 
-        // Force updateMaterials to reset everything
-        materialsMainAxis = -1;
-        materialsAxisSign = -1;
-        updateMaterials();
+        updateRenderOrder(true);
 
         updateShaderProperties();
     }
@@ -888,17 +902,10 @@ public class BuildMesh : MonoBehaviour {
     }
 
     public void OnMouseDown() {
-        // If the allTriangles array has been mangled by a code reload, recreate all the missing arrays
-        if (allTriangles == null || allTriangles[0] == null) {
-            Recreate();
-        }
-
         if (mouseOverUI()) {
             return;
         }
-
-        isRotating = true;
-        dragStartPosition = Input.mousePosition;
+        triggerDown(Input.mousePosition);
 
         if (Input.GetKey("left ctrl")) {
             Ray ray = Camera.main.ScreenPointToRay(Input.mousePosition);
@@ -992,59 +999,32 @@ public class BuildMesh : MonoBehaviour {
     }
 
     public void OnMouseDrag() {
-        if (isRotating) {
-            Vector3 change = (Input.mousePosition - dragStartPosition) * rotationSensitivity;
-            gameObject.transform.Rotate(change.y, -change.x, 0, Space.World);
-            updateMaterials();
-
-            updateSnapScale();
-
-            dragStartPosition = Input.mousePosition;
-        }
+        triggerHeld(Input.mousePosition, true);
     }
 
     public void OnMouseUp() {
-        isRotating = false;
-
-        // Find rotation to snap to
-        Vector3 rot = gameObject.transform.rotation.eulerAngles;
-        rot.x = (float)Math.Round(rot.x / 90f) * 90;
-        rot.y = (float)Math.Round(rot.y / 90f) * 90;
-        rot.z = (float)Math.Round(rot.z / 90f) * 90;
-        snappingRotation = Quaternion.Euler(rot);
+        triggerUp();
     }
 
 	public void triggerLookRotation(Vector3 currentPosition) {
 		gameObject.transform.rotation = Quaternion.LookRotation(gameObject.transform.position - currentPosition);
 	}
 
-    //TODO: write some nice, modular code here instead of copy pasting
     public void triggerDown(Vector3 initialPosition) {
         // If the allTriangles array has been mangled by a code reload, recreate all the missing arrays
         if (allTriangles == null || allTriangles[0] == null) {
             Recreate();
         }
 
-        //if (mouseOverUI()) {
-        //	return;
-        //}
-
         isRotating = true;
         dragStartPosition = initialPosition;
-        Debug.Log("initialPosition" + initialPosition);
     }
 
-    public void triggerHeld(Vector3 currentPosition) {
-
+    public void triggerHeld(Vector3 currentPosition, bool useMouseSensitivity = false) {
         if (isRotating) {
-            //Debug.Log ("triggerHeld: isRotating");
-            Vector3 change = (currentPosition - dragStartPosition) * triggerRotationSensitivity;
-            //Debug.Log ("change: " + change);
+            Vector3 change = (currentPosition - dragStartPosition) * (useMouseSensitivity ? mouseRotationSensitivity : triggerRotationSensitivity);
             gameObject.transform.Rotate(change.y, -change.x, 0, Space.World);
-            //gameObject.transform.rotation = Quaternion.FromToRotation((dragStartPosition - gameObject.transform.position), (currentPosition - gameObject.transform.position));
-            updateMaterials();
-
-            updateSnapScale();
+            updateRenderOrder();
 
             dragStartPosition = currentPosition;
         }
@@ -1055,30 +1035,10 @@ public class BuildMesh : MonoBehaviour {
 
         // Find rotation to snap to
         Vector3 rot = gameObject.transform.rotation.eulerAngles;
-        Debug.Log("triggerUp, rot: " + rot);
         rot.x = (float)Math.Round(rot.x / 90f) * 90;
         rot.y = (float)Math.Round(rot.y / 90f) * 90;
         rot.z = (float)Math.Round(rot.z / 90f) * 90;
         snappingRotation = Quaternion.Euler(rot);
-    }
-
-
-    void updateSnapScale() {
-        // Camera direction in the local space of the mesh
-        Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
-
-        int mainAxis;
-        int mainAxisSign;
-        getMainAxisAndSign(cameraDirection, out mainAxis, out mainAxisSign);
-
-        int removedLayers = rmLayersXyz[mainAxis, mainAxisSign];
-        int totalLayers = cubeCounts[mainAxis];
-        float totalHeight = layerPixels[mainAxis] * scaleFactor;
-        if (mainAxis == 1) {
-            totalHeight *= yAspectRatio;
-        }
-
-        snappingZoomIncrement = totalHeight / totalLayers * removedLayers;
     }
 
     public void setTransferFunctionEnabled(bool enabled) {
@@ -1098,13 +1058,6 @@ public class BuildMesh : MonoBehaviour {
         updateShaderProperties();
     }
 
-    public void setQuality(float q) {
-        quality = (int)q;
-        qualityText.text = "Quality: " + quality;
-        subcubeSize = new int[] { 70, 50, 30, 20 }[quality - 1];
-        Recreate();
-    }
-
     public void resetAll() {
         gameObject.transform.rotation = new Quaternion();
         snappingRotation = new Quaternion();
@@ -1112,12 +1065,20 @@ public class BuildMesh : MonoBehaviour {
         transferFunctionToggle.isOn = true;
         transparencyScalarSlider.value = 0.5f;
         contrastSlider.value = 1.0f;
-        qualitySlider.value = 2;
 
-        updateMaterials();
+        rmPixelsXyz = new int[3, 2];
+        rmLayersXyz = new int[3, 2];
+        Recreate();
+
+        updateRenderOrder();
     }
 
     public void updateShaderProperties() {
+        // do nothing if not yet loaded
+        if (gameObjects == null || gameObjects.Length == 0) {
+            return;
+        }
+
         for (int meshI = 0; meshI < meshes.Length; meshI++) {
             Material[] materials = renderers[meshI].materials;
             for (int matI = 0; matI < materials.Length; matI++) {
@@ -1247,26 +1208,38 @@ public class BuildMesh : MonoBehaviour {
         }
 
         rmLayersXyz[axis, sign] = newRmLayers;
-        updateSnapScale();
     }
 
     // Update is called once per frame
     void Update() {
+        // do nothing if not yet loaded
+        if (gameObjects == null || gameObjects.Length == 0) {
+            return;
+        }
+
         // Manage switching between view modes
-        if (useDetailedViewMode == renderers[0].enabled) {
-            for (int i = 0; i < gameObjects.Length; i++) {
+        if (useDetailedViewMode && renderers[0].enabled) {
+            updateDetailsMeshVertices();
+            // The correct detail renderer to enable will be done in this function
+            updateRenderOrder(true);
+        } else if (!useDetailedViewMode) {
+            for (int axis = 0; axis < 3; axis++) {
+                detailsRenderers[axis].enabled = false;
+                detailsColliders[axis].enabled = false;
+            }
+        }
+
+        bool shouldUpdateRenderOrder = false;
+        for (int i = 0; i < gameObjects.Length; i++) {
+            bool hasChange = renderers[i].enabled == useDetailedViewMode;
+            if (hasChange) {
+                shouldUpdateRenderOrder = true;
                 renderers[i].enabled = !useDetailedViewMode;
+                colliders[i].enabled = !useDetailedViewMode;
             }
-            if (!useDetailedViewMode) {
-                for (int axis = 0; axis < 3; axis++) {
-                    detailsRenderers[axis].enabled = false;
-                }
-            }
-            if (useDetailedViewMode) {
-                updateDetailsMeshVertices();
-            }
-            // enabling of the correct details renderers is in updateMaterials
-            updateMaterials(true);
+        }
+        if (shouldUpdateRenderOrder) {
+            updateRenderOrder(true);
         }
 
         if (Input.GetKeyDown("left shift")) {
@@ -1322,6 +1295,19 @@ public class BuildMesh : MonoBehaviour {
             gameObject.transform.position = Vector3.Slerp (gameObject.transform.position, lockPosition, Time.deltaTime * 4);
         }
 
+        if (Input.GetKey("left ctrl")) {
+            // Zoom instead of go through layers
+            zoomIncrements += Input.mouseScrollDelta.y / 10;
+        } else {
+            // Make scrolling slower, but allow the partial ticks to accumulate
+            sumDeltaScrollTicks += -Input.mouseScrollDelta.y / 2;
+            if (Math.Abs(sumDeltaScrollTicks) >= 1) {
+                int ticks = (int)sumDeltaScrollTicks;
+                sumDeltaScrollTicks -= ticks;
+                orthogonalScroll(ticks);
+            }
+        }
+
         Vector3 newCameraPos = Camera.main.transform.position;
         float newZ = baseCameraZ + zoomIncrements;
         if (newCameraPos.z != newZ) {
@@ -1329,13 +1315,6 @@ public class BuildMesh : MonoBehaviour {
             Camera.main.transform.position = newCameraPos;
         }
 
-        // Make scrolling slower, but allow the partial ticks to accumulate
-        sumDeltaScrollTicks += -Input.mouseScrollDelta.y / 2;
-        if (Math.Abs(sumDeltaScrollTicks) >= 1) {
-            int ticks = (int)sumDeltaScrollTicks;
-            sumDeltaScrollTicks -= ticks;
-            orthogonalScroll(ticks);
-        }
-        updateMaterials();
+        updateRenderOrder();
     }
 }
