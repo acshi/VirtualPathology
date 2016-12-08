@@ -7,8 +7,6 @@ public class triggerScript : MonoBehaviour {
     public BuildMesh buildMesh;
     public GameObject procedural;
 
-    public Vector3 CanvasRelativePosition = new Vector3(1.0f, 0.5f, -0.6f);
-
     private SteamVR_TrackedObject trackedObject;
     private Vector3 deltaPosition;
     private Vector3 oldPosition;
@@ -23,7 +21,7 @@ public class triggerScript : MonoBehaviour {
     private Vector3 distanceBetweenControllers;
     //activate or deactive canvas
     public Canvas canvas;
-    public GameObject mainCamera;
+    public Camera mainCamera;
     GameObject sphere;
     public float menuDistance = .8f;
 
@@ -45,13 +43,10 @@ public class triggerScript : MonoBehaviour {
         trackedObject = GetComponent<SteamVR_TrackedObject>();
         laser = GetComponent<LaserPointer>();
         oldPosition = gameObject.transform.position;
-        otherScript = otherController.GetComponent<triggerScript> ();
-        canvas.GetComponent<Canvas> ().enabled = false;
-        //sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        //sphere.transform.position = Vector3.zero;
+        otherScript = otherController.GetComponent<triggerScript>();
+        canvas.enabled = true;
     }
-
-    // Update is called once per frame
+	
     void Update() {
         if (device == null) {
             if (trackedObject.index != SteamVR_TrackedObject.EIndex.None) {
@@ -61,14 +56,14 @@ public class triggerScript : MonoBehaviour {
             //Debug.Log ("pos:" + gameObject.transform.position);
             if (controllerState == states.rotate ) {
                 if (otherScript.controllerState != states.rotate || isDominantController) {
-                    if (device.GetPressDown (SteamVR_Controller.ButtonMask.Trigger)) {
+                    if (device.GetPressDown(SteamVR_Controller.ButtonMask.Trigger)) {
                         buildMesh.shouldSnap = false;
-                        //buildMesh.triggerDown (gameObject.transform.position);
-                    } else if (device.GetPress (SteamVR_Controller.ButtonMask.Trigger)) {
-                        //buildMesh.triggerHeld (gameObject.transform.position);
-						buildMesh.triggerLookRotation(gameObject.transform.position);
-                    } else if (device.GetPressUp (SteamVR_Controller.ButtonMask.Trigger)) {
-                        //buildMesh.triggerUp ();
+                        buildMesh.triggerDown(gameObject.transform.position);
+                    } else if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
+                        buildMesh.triggerHeld(gameObject.transform.position);
+						//buildMesh.triggerLookRotation(gameObject.transform.position);
+                    } else if (device.GetPressUp(SteamVR_Controller.ButtonMask.Trigger)) {
+                        buildMesh.triggerUp();
                     }
                 }
 
@@ -124,20 +119,19 @@ public class triggerScript : MonoBehaviour {
 
         if (device.GetPressDown(SteamVR_Controller.ButtonMask.Grip)) {
             buildMesh.shouldSnap = true;
-            buildMesh.shouldReset = true;
+            //buildMesh.shouldReset = true;
         }
 
         //toggle menu pointer on menu button
         //NOTE: menu pointer actually controlled via VRTK Controller Events script, but we track state here as well to disable other actions
-        if (device.GetPressDown (SteamVR_Controller.ButtonMask.ApplicationMenu)) {
+        if (device.GetPressDown(SteamVR_Controller.ButtonMask.ApplicationMenu)) {
             controllerState = states.none;
-            canvas.enabled = true;
-            canvas.transform.position = mainCamera.transform.TransformPoint(CanvasRelativePosition);
-            canvas.transform.rotation = Quaternion.LookRotation(canvas.transform.position - mainCamera.transform.position);
+            //canvas.enabled = !canvas.enabled;
         }
-        if (device.GetPressUp (SteamVR_Controller.ButtonMask.ApplicationMenu)) {
-            canvas.enabled = false;
-        }
+        canvas.transform.rotation = Quaternion.LookRotation(canvas.transform.position - mainCamera.transform.position);
+        //if (device.GetPressUp(SteamVR_Controller.ButtonMask.ApplicationMenu)) {
+        //    canvas.enabled = false;
+        //}
         deltaPosition = translationSensitivity * (gameObject.transform.position - oldPosition);
         oldPosition = gameObject.transform.position;
     }

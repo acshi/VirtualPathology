@@ -6,12 +6,12 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 public class BuildMesh : MonoBehaviour {
-    public string ImageLayerDirectory = "human_kidney_png";
+    string datasetDirectory = "human_kidney_png";
 
     // Selects the layered view mode as opposed to the cube-based view mode
     public bool useDetailedViewMode = true;
 
-    public float yAspectRatio = 2.8f;
+    float yAspectRatio = 2.8f;
     public int subcubeSize = 30; // each cube has x, y, and z of this dimension.
     const float mouseRotationSensitivity = 0.3f;
     const float triggerRotationSensitivity = 300f;
@@ -92,6 +92,8 @@ public class BuildMesh : MonoBehaviour {
 
     public Vector3 lockPosition = Vector3.zero;
     public GameObject mainCamera;
+
+    public Canvas settingsCanvas;
 
     void makeMeshCubes() {
         // Number of cubes to make in each dimension: x, y, z
@@ -510,7 +512,7 @@ public class BuildMesh : MonoBehaviour {
     }
 
     public void LoadDataset(string newDatasetDirectory) {
-        ImageLayerDirectory = newDatasetDirectory;
+        datasetDirectory = newDatasetDirectory;
         loadLayerFiles();
         scaleFactor = 2f / layerWidth;
         Recreate(true);
@@ -519,7 +521,7 @@ public class BuildMesh : MonoBehaviour {
     void loadLayerFiles() {
         // The files in the designated folder have the source y-layers
         // Absolute dataset paths will ignore the streaming assets path
-        string path = Path.Combine(Application.streamingAssetsPath, ImageLayerDirectory);
+        string path = Path.Combine(Application.streamingAssetsPath, datasetDirectory);
 
         if (!Directory.Exists(path)) {
             Debug.Log("Directory does not exist");
@@ -720,8 +722,7 @@ public class BuildMesh : MonoBehaviour {
     // Use this for initialization
     void Start() {
         baseRenderer = GetComponent<MeshRenderer>();
-        
-        lockPosition = gameObject.transform.position = mainCamera.transform.position + mainCamera.transform.forward * 3;
+        gameObject.transform.position = lockPosition;
     }
 
     float constrain(float val, float min, float max) {
@@ -729,6 +730,11 @@ public class BuildMesh : MonoBehaviour {
     }
 
     void Recreate(bool forceResetTextures = false) {
+        // nothing loaded yet
+        if (layerNumber == 0) {
+            return;
+        }
+
         meshSize = new float[3]{ scaleFactor * layerWidth, scaleFactor * layerNumber, scaleFactor * layerHeight };
         makeMeshCubes();
         makeDetailedViewMeshes();
@@ -1292,7 +1298,7 @@ public class BuildMesh : MonoBehaviour {
             gameObject.transform.rotation = Quaternion.Slerp(gameObject.transform.rotation, snappingRotation, Time.deltaTime * 4);
         }
         if (shouldReset) {
-            gameObject.transform.position = Vector3.Slerp (gameObject.transform.position, lockPosition, Time.deltaTime * 4);
+            gameObject.transform.position = Vector3.Slerp(gameObject.transform.position, lockPosition, Time.deltaTime * 4);
         }
 
         if (Input.GetKey("left ctrl")) {
