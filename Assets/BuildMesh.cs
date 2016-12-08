@@ -63,6 +63,8 @@ public class BuildMesh : MonoBehaviour {
     enum sliceMode { NONE, VERT, HORIZ };
     sliceMode currentSliceMode;
     Vector3 dragStartPosition;
+    public Vector3 dominantLastPosition;
+    public Vector3 nonDominantLastPosition;
 
     // How much to add to the local scale of the object
     // We use scale to effect zoom in a camera-independant manner
@@ -1011,10 +1013,50 @@ public class BuildMesh : MonoBehaviour {
     public void OnMouseUp() {
         triggerUp();
     }
+    // returns main axis of vector (x=1,y=2,z=3). if the direction of main axis is negative, return the result as negative
+    void getMainAxis(Vector3 vec, out float mainAxis, out float mainVal) {
+        mainAxis = 1;
+        mainVal = vec.x;
+        if (Mathf.Abs(vec.y) > Mathf.Abs(mainVal)) {
+            mainAxis = 2;
+            mainVal = vec.y;
+        }
+        if (Mathf.Abs(vec.z) > Mathf.Abs(mainVal)) {
+            mainAxis = 3;
+            mainVal = vec.z;
+        }
+        mainAxis = mainVal > 0 ? mainAxis : -mainAxis;
+    }
 
-	public void triggerLookRotation(Vector3 currentPosition) {
-		gameObject.transform.rotation = Quaternion.LookRotation(gameObject.transform.position - currentPosition);
-	}
+    public void dualControllerHandler(Vector3 dominantPosition, Vector3 nonDominantPosition) {
+        Debug.Log("entered dualcontrollerhandler");
+        Vector3 offsetDominant = dominantPosition - dominantLastPosition;
+        Vector3 offsetNonDominant = nonDominantPosition - nonDominantLastPosition;
+        float mainAxisDominant, mainAxisNonDominant, mainValDominant, mainValNonDominant;
+        getMainAxis(offsetDominant, out mainAxisDominant, out mainValDominant);
+        getMainAxis(offsetNonDominant, out mainAxisNonDominant, out mainValNonDominant);
+        if (mainAxisDominant == mainAxisNonDominant && Mathf.Abs(mainValDominant / mainValNonDominant - 1) < 0.3) {
+            // if same axis and direction, and approximately same magnitude, we translate
+            Vector3 thisTranslation = (offsetDominant + offsetNonDominant) / 2;
+            gameObject.transform.position += thisTranslation;
+            Debug.Log("translated: " + thisTranslation);
+        } else {
+            // otherwise, we rotate
+            Quaternion interRotation = Quaternion.FromToRotation(dominantLastPosition - nonDominantLastPosition, dominantPosition - nonDominantPosition);
+            gameObject.transform.rotation *= interRotation;
+            Debug.Log("rotated: " + interRotation);
+        }
+        dominantLastPosition = dominantPosition;
+        nonDominantLastPosition = nonDominantPosition;
+    }
+
+    public void triggerHeldRotation(Vector3 currentPosition) {
+        if (isRotating) {
+            //gameObject.transform.rotation = Quaternion.LookRotation(gameObject.transform.position - currentPosition);
+            gameObject.transform.rotation *= Quaternion.FromToRotation(dragStartPosition - gameObject.transform.position, currentPosition - gameObject.transform.position);
+            dragStartPosition = currentPosition;
+        }
+    }
 
     public void triggerDown(Vector3 initialPosition) {
         // If the allTriangles array has been mangled by a code reload, recreate all the missing arrays
@@ -1044,7 +1086,7 @@ public class BuildMesh : MonoBehaviour {
         rot.x = (float)Math.Round(rot.x / 90f) * 90;
         rot.y = (float)Math.Round(rot.y / 90f) * 90;
         rot.z = (float)Math.Round(rot.z / 90f) * 90;
-        snappingRotation = Quaternion.Euler(rot);
+        //snappingRotation = Quaternion.Euler(rot);
     }
 
     public void setTransferFunctionEnabled(bool enabled) {
@@ -1322,5 +1364,22 @@ public class BuildMesh : MonoBehaviour {
         }
 
         updateRenderOrder();
+    }
+
+    void OnCollisionEnter(Collision col)
+    {
+        Debug.Log("entered OnCollisionEnter");
+        // We just take the first collision point and ignore others
+        ContactPoint P = col.contacts[0];
+        RaycastHit hit;
+        Ray ray = new Ray(P.point + P.normal * 0.05f, -P.normal);
+        if (gameObject.GetComponent<MeshCollider>().Raycast(ray, out hit, 0.1f))
+        {
+            int triangle = hit.triangleIndex;
+            Debug.Log("Got triangle: " + triangle);
+            // do something...
+        }
+        else
+            Debug.LogError("Have a collision but can't raycast the point");
     }
 }

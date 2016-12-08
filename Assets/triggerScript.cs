@@ -1,7 +1,6 @@
 using UnityEngine;
 using Valve.VR;
 
-
 public class triggerScript : MonoBehaviour {
 
     public BuildMesh buildMesh;
@@ -9,7 +8,7 @@ public class triggerScript : MonoBehaviour {
 
     private SteamVR_TrackedObject trackedObject;
     private Vector3 deltaPosition;
-    private Vector3 oldPosition;
+    public Vector3 oldPosition;
     float slideSensitivity = 400;
     float translationSensitivity = 5;
     private float sumScrollDelta;
@@ -24,6 +23,9 @@ public class triggerScript : MonoBehaviour {
     public Camera mainCamera;
     GameObject sphere;
     public float menuDistance = .8f;
+
+    public bool dualControllerModeEnabled = false;
+    public bool isHeld;
 
     private SteamVR_Controller.Device device = null;
 
@@ -55,17 +57,40 @@ public class triggerScript : MonoBehaviour {
         } else {
             //Debug.Log ("pos:" + gameObject.transform.position);
             if (controllerState == states.rotate ) {
-                if (otherScript.controllerState != states.rotate || isDominantController) {
+                if (dualControllerModeEnabled) {
+                    //Debug.Log("entered dualControllerModeEnabled!");
+                    if (device.GetPressDown(SteamVR_Controller.ButtonMask.Trigger)) {
+                        isHeld = true;
+                        if (otherScript.isHeld && isDominantController) {
+                            Debug.Log("setting last positions");
+                            buildMesh.dominantLastPosition = gameObject.transform.position;
+                            buildMesh.nonDominantLastPosition = otherController.transform.position;
+                        } else
+                            Debug.Log("fell through! 1");
+                    } else if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
+                        if (otherScript.isHeld && isDominantController) {
+                            Debug.Log("calling dualControllerHandler");
+                            otherPosition = otherController.transform.position;
+                            buildMesh.dualControllerHandler(gameObject.transform.position, otherPosition);
+                        } else
+                            Debug.Log("fell through! 2");
+                    } else if (device.GetPressUp(SteamVR_Controller.ButtonMask.Trigger)) {
+                        Debug.Log("trigger release!");
+                        isHeld = false;
+                        //otherScript.isHeld = false;
+                    }
+                } else if (otherScript.controllerState != states.rotate || isDominantController) {
+                    //Debug.Log("did not enter dualControllerModeEnabled!");
                     if (device.GetPressDown(SteamVR_Controller.ButtonMask.Trigger)) {
                         buildMesh.shouldSnap = false;
                         buildMesh.triggerDown(gameObject.transform.position);
                     } else if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
                         buildMesh.triggerHeld(gameObject.transform.position);
-						//buildMesh.triggerLookRotation(gameObject.transform.position);
+                        //buildMesh.triggerHeldRotation(gameObject.transform.position);
                     } else if (device.GetPressUp(SteamVR_Controller.ButtonMask.Trigger)) {
                         buildMesh.triggerUp();
                     }
-                }
+                } 
 
                 laser.active = false;
             } else if (controllerState == states.translate) {
@@ -78,7 +103,6 @@ public class triggerScript : MonoBehaviour {
                 //laser.active = true;
             } else if (controllerState == states.slice) {
                 if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
-
                     sumScrollDelta += (gameObject.transform.position.z - oldPosition.z) * slideSensitivity;
                     if (Mathf.Abs(sumScrollDelta) >= 1) {
                         int ticks = (int)sumScrollDelta;
@@ -149,5 +173,11 @@ public class triggerScript : MonoBehaviour {
         } else {
             Debug.LogError("Have a collision but can't raycast the point");
         }
+    }
+
+    public void setDualControllerModeEnabled(bool isEnabled) {
+        //Debug.Log("got DualControllerMode: " + isEnabled);
+        dualControllerModeEnabled = isEnabled;
+        otherScript.dualControllerModeEnabled = isEnabled;
     }
 }
