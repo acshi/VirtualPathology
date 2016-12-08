@@ -4,11 +4,10 @@ public class LaserPointer : MonoBehaviour {
     public bool active = false;
     public Color color;
     public float thickness = 0.002f;
-    public GameObject holder;
-    public GameObject pointer;
+    GameObject holder;
+    GameObject pointer;
     bool isActive = false;
     public bool addRigidBody = false;
-    public Transform reference;
     public event PointerEventHandler PointerIn;
     public event PointerEventHandler PointerOut;
     public BuildMesh bm;
