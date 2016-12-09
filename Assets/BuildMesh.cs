@@ -417,6 +417,8 @@ public class BuildMesh : MonoBehaviour {
             if (updateToMesh) {
                 detailsMeshes[axis].vertices = vertices;
                 detailsMeshes[axis].uv = uvs;
+                detailsColliders[axis].sharedMesh = null;
+                detailsColliders[axis].sharedMesh = detailsMeshes[axis];
             }
         }
     }
@@ -509,6 +511,7 @@ public class BuildMesh : MonoBehaviour {
                 mesh.SetTriangles(triangles, submeshI);
             }
 
+            collider.sharedMesh = null;
             collider.sharedMesh = mesh;
         }
     }
@@ -677,13 +680,13 @@ public class BuildMesh : MonoBehaviour {
             return;
         }
 
-        // Camera direction in the local space of the mesh
-        Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
+        // Vector from camera to object
+        Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(mainCamera.transform.forward);
         float[] cameraDirXyz = new float[3] { cameraDirection.x, cameraDirection.y, cameraDirection.z };
 
         int mainAxis;
         int mainAxisSign;
-        getMainAxisAndSign(cameraDirection, out mainAxis, out mainAxisSign);
+        getMainAxisAndSign(out mainAxis, out mainAxisSign);
 
         if (!force && materialsMainAxis == mainAxis && materialsAxisSign == mainAxisSign) {
             return;
@@ -1116,6 +1119,7 @@ public class BuildMesh : MonoBehaviour {
 
     public void resetAll() {
         gameObject.transform.rotation = new Quaternion();
+        gameObject.transform.position = Vector3.zero;
         snappingRotation = new Quaternion();
 
         transferFunctionToggle.isOn = true;
@@ -1163,18 +1167,9 @@ public class BuildMesh : MonoBehaviour {
         return Math.Abs(a - b) < epsilon;
     }
 
-    Vector3 getViewNormal() {
-        // Detect which face of the object is in front of the camera, return that normal
-        RaycastHit rayHit;
-        Physics.Raycast(Camera.main.transform.position, Camera.main.transform.forward, out rayHit);
-        if (rayHit.transform == null) {
-            return Vector3.zero;
-        }
-        Vector3 hitSurfaceNormal = rayHit.transform.InverseTransformDirection(rayHit.normal);
-        return hitSurfaceNormal;
-    }
+    void getMainAxisAndSign(out int axis, out int sign) {
+        Vector3 direction = gameObject.transform.InverseTransformDirection(mainCamera.transform.forward);
 
-    void getMainAxisAndSign(Vector3 direction, out int axis, out int sign) {
         float absX = Math.Abs(direction.x);
         float absY = Math.Abs(direction.y);
         float absZ = Math.Abs(direction.z);
@@ -1191,13 +1186,37 @@ public class BuildMesh : MonoBehaviour {
         }
     }
 
-    public void orthogonalScroll(int pixels) {
-        // Camera direction in the local space of the mesh
-        Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(Camera.main.transform.forward);
+    void newGetMainAxisAndSign(out int axis, out int sign) {
+        Vector3 cameraDirection = gameObject.transform.InverseTransformDirection(mainCamera.transform.forward);
+        Vector3 cameraPosition = gameObject.transform.InverseTransformDirection(mainCamera.transform.position);
+        float[] pos = new float[3] { cameraPosition.x, cameraPosition.y, cameraPosition.z };
+        bool[] possibleAxes = new bool[3];
+        for (int i = 0; i < 3; i++) {
+            float dim = layerPixels[i] * scaleFactor / 2;
+            possibleAxes[i] = pos[i] < -dim || pos[i] > dim;
+        }
 
+        float absX = Math.Abs(cameraPosition.x);
+        float absY = Math.Abs(cameraPosition.y);
+        float absZ = Math.Abs(cameraPosition.z);
+
+        if (absX > absY && absX > absZ && possibleAxes[0]) {
+            axis = 0;
+            sign = cameraDirection.x < 0 ? 1 : 0;
+        } else if (absY > absZ && possibleAxes[1]) {
+            axis = 1;
+            sign = cameraDirection.y < 0 ? 1 : 0;
+        } else {
+            axis = 2;
+            sign = cameraDirection.z < 0 ? 1 : 0;
+        }
+    }
+
+    public void orthogonalScroll(int pixels) {
+        // vector from camera to object
         int axis;
         int sign;
-        getMainAxisAndSign(cameraDirection, out axis, out sign);
+        getMainAxisAndSign(out axis, out sign);
 
         // Keep the end number of pixels non-zero so the mesh never completely disappears
         int newRmPixels = (int)constrain(rmPixelsXyz[axis, sign] + pixels, 0, layerPixels[axis] - 1 - rmPixelsXyz[axis, (sign + 1) % 2]);

@@ -5,7 +5,7 @@ using UnityEngine;
 public class SphereCubeRemover : MonoBehaviour {
 	private GameObject sphere;
 	private SphereCollider sphereCollider;
-	public bool isVisible = true;
+	bool isVisible = false;
 
 	// Use this for initialization
 	void Start () {
@@ -24,7 +24,7 @@ public class SphereCubeRemover : MonoBehaviour {
 		}
 	}
 
-	void setVisibility(bool isVisible) {
+	public void setVisibility(bool isVisible) {
 		this.isVisible = isVisible;
 		sphere.SetActive(isVisible);
 	}

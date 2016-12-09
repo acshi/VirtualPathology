@@ -4,7 +4,7 @@ public class LaserPointer : MonoBehaviour {
     public bool active = false;
     public Color color;
     public float thickness = 0.002f;
-    GameObject holder;
+    //GameObject holder;
     GameObject pointer;
     bool isActive = false;
     public bool addRigidBody = false;
@@ -19,12 +19,13 @@ public class LaserPointer : MonoBehaviour {
 
     // Use this for initialization
     void Start() {
-        holder = new GameObject();
-        holder.transform.parent = this.transform;
-        holder.transform.localPosition = Vector3.zero;
+        //holder = new GameObject("Laser Pointer Holder");
+        //holder.transform.parent = this.transform;
+        //holder.transform.localPosition = Vector3.zero;
 
         pointer = GameObject.CreatePrimitive(PrimitiveType.Cube);
-        pointer.transform.parent = holder.transform;
+        pointer.name = "Laser Pointer";
+        pointer.transform.parent = this.transform;
         pointer.transform.localScale = new Vector3(thickness, thickness, 100f);
         pointer.transform.localPosition = new Vector3(0f, 0f, 50f);
         BoxCollider collider = pointer.GetComponent<BoxCollider>();

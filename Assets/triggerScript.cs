@@ -7,7 +7,6 @@ public class triggerScript : MonoBehaviour {
     public GameObject procedural;
 
     private SteamVR_TrackedObject trackedObject;
-    private Vector3 deltaPosition;
     public Vector3 oldPosition;
     float slideSensitivity = 400;
     float translationSensitivity = 5;
@@ -21,8 +20,6 @@ public class triggerScript : MonoBehaviour {
     //activate or deactive canvas
     public Canvas canvas;
     public Camera mainCamera;
-    GameObject sphere;
-    public float menuDistance = .8f;
 
     public bool dualControllerModeEnabled = false;
     public bool isHeld;
@@ -56,31 +53,33 @@ public class triggerScript : MonoBehaviour {
             }
         } else {
             //Debug.Log ("pos:" + gameObject.transform.position);
-            if (controllerState == states.rotate ) {
-                if (dualControllerModeEnabled) {
-                    //Debug.Log("entered dualControllerModeEnabled!");
-                    if (device.GetPressDown(SteamVR_Controller.ButtonMask.Trigger)) {
-                        isHeld = true;
-                        if (otherScript.isHeld && isDominantController) {
-                            Debug.Log("setting last positions");
-                            buildMesh.dominantLastPosition = gameObject.transform.position;
-                            buildMesh.nonDominantLastPosition = otherController.transform.position;
-                        } else
-                            Debug.Log("fell through! 1");
-                    } else if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
-                        if (otherScript.isHeld && isDominantController) {
-                            Debug.Log("calling dualControllerHandler");
-                            otherPosition = otherController.transform.position;
-                            buildMesh.dualControllerHandler(gameObject.transform.position, otherPosition);
-                        } else
-                            Debug.Log("fell through! 2");
-                    } else if (device.GetPressUp(SteamVR_Controller.ButtonMask.Trigger)) {
-                        Debug.Log("trigger release!");
-                        isHeld = false;
-                        //otherScript.isHeld = false;
+
+            if (dualControllerModeEnabled) {
+                //Debug.Log("entered dualControllerModeEnabled!");
+                if (device.GetPressDown(SteamVR_Controller.ButtonMask.Trigger)) {
+                    isHeld = true;
+                    if (otherScript.isHeld && isDominantController) {
+                        Debug.Log("setting last positions");
+                        buildMesh.dominantLastPosition = gameObject.transform.position;
+                        buildMesh.nonDominantLastPosition = otherController.transform.position;
+                    } else {
+                        Debug.Log("fell through! 1");
                     }
-                } else if (otherScript.controllerState != states.rotate || isDominantController) {
-                    //Debug.Log("did not enter dualControllerModeEnabled!");
+                } else if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
+                    if (otherScript.isHeld && isDominantController) {
+                        Debug.Log("calling dualControllerHandler");
+                        otherPosition = otherController.transform.position;
+                        buildMesh.dualControllerHandler(gameObject.transform.position, otherPosition);
+                    } else {
+                        Debug.Log("fell through! 2");
+                    }
+                } else if (device.GetPressUp(SteamVR_Controller.ButtonMask.Trigger)) {
+                    Debug.Log("trigger release!");
+                    isHeld = false;
+                    //otherScript.isHeld = false;
+                }
+            } else {
+                if (controllerState == states.rotate) {
                     if (device.GetPressDown(SteamVR_Controller.ButtonMask.Trigger)) {
                         buildMesh.shouldSnap = false;
                         buildMesh.triggerDown(gameObject.transform.position);
@@ -90,28 +89,29 @@ public class triggerScript : MonoBehaviour {
                     } else if (device.GetPressUp(SteamVR_Controller.ButtonMask.Trigger)) {
                         buildMesh.triggerUp();
                     }
-                } 
 
-                laser.active = false;
-            } else if (controllerState == states.translate) {
-                if (device.GetPress (SteamVR_Controller.ButtonMask.Trigger)) {
-                    buildMesh.shouldReset = false;
-                    procedural.transform.position += deltaPosition;
-                }
-                laser.active = false;
-            } else if (controllerState == states.shoot) {
-                //laser.active = true;
-            } else if (controllerState == states.slice) {
-                if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
-                    sumScrollDelta += (gameObject.transform.position.z - oldPosition.z) * slideSensitivity;
-                    if (Mathf.Abs(sumScrollDelta) >= 1) {
-                        int ticks = (int)sumScrollDelta;
-                        sumScrollDelta -= ticks;
-                        buildMesh.orthogonalScroll(ticks);
+                    laser.active = false;
+                } else if (controllerState == states.translate) {
+                    if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
+                        buildMesh.shouldReset = false;
+                        procedural.transform.position += translationSensitivity * (gameObject.transform.position - oldPosition);
+                        Debug.Log("Delta pos: " + (gameObject.transform.position - oldPosition));
                     }
+                    laser.active = false;
+                } else if (controllerState == states.shoot) {
+                    //laser.active = true;
+                } else if (controllerState == states.slice) {
+                    if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
+                        sumScrollDelta += (gameObject.transform.position.z - oldPosition.z) * slideSensitivity;
+                        if (Mathf.Abs(sumScrollDelta) >= 1) {
+                            int ticks = (int)sumScrollDelta;
+                            sumScrollDelta -= ticks;
+                            buildMesh.orthogonalScroll(ticks);
+                        }
 
+                    }
+                    laser.active = false;
                 }
-                laser.active = false;
             }
         }
 
@@ -156,7 +156,6 @@ public class triggerScript : MonoBehaviour {
         //if (device.GetPressUp(SteamVR_Controller.ButtonMask.ApplicationMenu)) {
         //    canvas.enabled = false;
         //}
-        deltaPosition = translationSensitivity * (gameObject.transform.position - oldPosition);
         oldPosition = gameObject.transform.position;
     }
 
