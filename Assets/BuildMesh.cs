@@ -517,6 +517,14 @@ public class BuildMesh : MonoBehaviour {
         datasetDirectory = newDatasetDirectory;
         loadLayerFiles();
         scaleFactor = 2f / layerWidth;
+
+        // Try to load aspect ratio. Use default if it does not exist/can't be read.
+        try {
+            string aspectRatioPath = Path.Combine(Application.streamingAssetsPath, datasetDirectory);
+            aspectRatioPath = Path.Combine(aspectRatioPath, "aspect_ratio");
+            float.TryParse(File.ReadAllLines(aspectRatioPath)[0], out yAspectRatio);
+        } catch (IOException) {}
+
         Recreate(true);
     }
 
