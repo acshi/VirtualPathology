@@ -21,7 +21,6 @@ public class triggerScript : MonoBehaviour {
     public Canvas canvas;
     public Camera mainCamera;
 
-    public bool dualControllerModeEnabled = false;
     public bool isHeld;
 
     private SteamVR_Controller.Device device = null;
@@ -54,7 +53,7 @@ public class triggerScript : MonoBehaviour {
         } else {
             //Debug.Log ("pos:" + gameObject.transform.position);
 
-            if (dualControllerModeEnabled) {
+            if (buildMesh.dualControllerModeEnabled) {
                 //Debug.Log("entered dualControllerModeEnabled!");
                 if (device.GetPressDown(SteamVR_Controller.ButtonMask.Trigger)) {
                     isHeld = true;
@@ -172,11 +171,5 @@ public class triggerScript : MonoBehaviour {
         } else {
             Debug.LogError("Have a collision but can't raycast the point");
         }
-    }
-
-    public void setDualControllerModeEnabled(bool isEnabled) {
-        //Debug.Log("got DualControllerMode: " + isEnabled);
-        dualControllerModeEnabled = isEnabled;
-        otherScript.dualControllerModeEnabled = isEnabled;
     }
 }

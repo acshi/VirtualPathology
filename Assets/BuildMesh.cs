@@ -96,6 +96,7 @@ public class BuildMesh : MonoBehaviour {
     public GameObject mainCamera;
 
     public Canvas settingsCanvas;
+    public bool dualControllerModeEnabled = false;
 
     void makeMeshCubes() {
         // Number of cubes to make in each dimension: x, y, z
@@ -1103,6 +1104,10 @@ public class BuildMesh : MonoBehaviour {
     public void setTransferFunctionEnabled(bool enabled) {
         transferFunctionEnabled = enabled;
         updateShaderProperties();
+    }
+
+    public void setDualModeEnabled(bool enabled) {
+        dualControllerModeEnabled = enabled;
     }
 
     public void setTransparencyScalar(float transparency) {
