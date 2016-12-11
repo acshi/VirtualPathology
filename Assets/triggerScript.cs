@@ -44,6 +44,19 @@ public class triggerScript : MonoBehaviour {
         otherScript = otherController.GetComponent<triggerScript>();
         canvas.enabled = true;
     }
+
+    void slice() {
+        if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
+            sumScrollDelta += (gameObject.transform.position.z - oldPosition.z) * slideSensitivity;
+            if (Mathf.Abs(sumScrollDelta) >= 1) {
+                int ticks = (int)sumScrollDelta;
+                sumScrollDelta -= ticks;
+                buildMesh.orthogonalScroll(ticks);
+            }
+
+        }
+        laser.active = false;
+    }
 	
     void Update() {
         if (device == null) {
@@ -57,20 +70,25 @@ public class triggerScript : MonoBehaviour {
                 //Debug.Log("entered dualControllerModeEnabled!");
                 if (device.GetPressDown(SteamVR_Controller.ButtonMask.Trigger)) {
                     isHeld = true;
-                    if (otherScript.isHeld && isDominantController) {
-                        Debug.Log("setting last positions");
-                        buildMesh.dominantLastPosition = gameObject.transform.position;
-                        buildMesh.nonDominantLastPosition = otherController.transform.position;
+                    if (otherScript.isHeld) {
+                        if (isDominantController) {
+                            Debug.Log("setting last positions");
+                            buildMesh.dominantLastPosition = gameObject.transform.position;
+                            buildMesh.nonDominantLastPosition = otherController.transform.position;
+                        }
                     } else {
-                        Debug.Log("fell through! 1");
+                        Debug.Log("starting scroll");
                     }
                 } else if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
-                    if (otherScript.isHeld && isDominantController) {
-                        Debug.Log("calling dualControllerHandler");
-                        otherPosition = otherController.transform.position;
-                        buildMesh.dualControllerHandler(gameObject.transform.position, otherPosition);
+                    if (otherScript.isHeld) {
+                        if (isDominantController) {
+                            Debug.Log("calling dualControllerHandler");
+                            otherPosition = otherController.transform.position;
+                            buildMesh.dualControllerHandler(gameObject.transform.position, otherPosition);
+                        }
                     } else {
-                        Debug.Log("fell through! 2");
+                        Debug.Log("continuing scroll");
+                        slice();
                     }
                 } else if (device.GetPressUp(SteamVR_Controller.ButtonMask.Trigger)) {
                     Debug.Log("trigger release!");
@@ -100,16 +118,7 @@ public class triggerScript : MonoBehaviour {
                 } else if (controllerState == states.shoot) {
                     //laser.active = true;
                 } else if (controllerState == states.slice) {
-                    if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
-                        sumScrollDelta += (gameObject.transform.position.z - oldPosition.z) * slideSensitivity;
-                        if (Mathf.Abs(sumScrollDelta) >= 1) {
-                            int ticks = (int)sumScrollDelta;
-                            sumScrollDelta -= ticks;
-                            buildMesh.orthogonalScroll(ticks);
-                        }
-
-                    }
-                    laser.active = false;
+                    slice();
                 }
             }
         }
