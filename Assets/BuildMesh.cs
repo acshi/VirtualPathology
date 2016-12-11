@@ -1049,7 +1049,8 @@ public class BuildMesh : MonoBehaviour {
         getMainAxis(offsetNonDominant, out mainAxisNonDominant, out mainValNonDominant);
         if (mainAxisDominant == mainAxisNonDominant && Mathf.Abs(mainValDominant / mainValNonDominant - 1) < 0.3) {
             // if same axis and direction, and approximately same magnitude, we translate
-            Vector3 thisTranslation = (offsetDominant + offsetNonDominant) / 2;
+            //need to play around with the constant here
+            Vector3 thisTranslation = (offsetDominant + offsetNonDominant) * 3;
             gameObject.transform.position += thisTranslation;
             Debug.Log("translated: " + thisTranslation);
         } else {
@@ -1106,8 +1107,8 @@ public class BuildMesh : MonoBehaviour {
         updateShaderProperties();
     }
 
-    public void setDualModeEnabled(bool enabled) {
-        dualControllerModeEnabled = enabled;
+    public void toggleDualMode(bool enabled) {
+        dualControllerModeEnabled = !dualControllerModeEnabled;
     }
 
     public void setTransparencyScalar(float transparency) {

@@ -26,6 +26,7 @@ public class triggerScript : MonoBehaviour {
     private SteamVR_Controller.Device device = null;
 
     public states controllerState;
+    private GameObject radialMenu;
 
     private LaserPointer laser;
     public enum states {
@@ -43,6 +44,7 @@ public class triggerScript : MonoBehaviour {
         oldPosition = gameObject.transform.position;
         otherScript = otherController.GetComponent<triggerScript>();
         canvas.enabled = true;
+        radialMenu = gameObject.transform.FindChild("RadialMenu").gameObject;
     }
 
     void slice() {
@@ -67,6 +69,7 @@ public class triggerScript : MonoBehaviour {
             //Debug.Log ("pos:" + gameObject.transform.position);
 
             if (buildMesh.dualControllerModeEnabled) {
+                radialMenu.SetActive(false);
                 //Debug.Log("entered dualControllerModeEnabled!");
                 if (device.GetPressDown(SteamVR_Controller.ButtonMask.Trigger)) {
                     isHeld = true;
@@ -96,6 +99,7 @@ public class triggerScript : MonoBehaviour {
                     //otherScript.isHeld = false;
                 }
             } else {
+                radialMenu.SetActive(true);
                 if (controllerState == states.rotate) {
                     if (device.GetPressDown(SteamVR_Controller.ButtonMask.Trigger)) {
                         buildMesh.shouldSnap = false;
