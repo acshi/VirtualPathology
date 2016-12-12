@@ -3,13 +3,13 @@ using System.Collections.Generic;
 using UnityEngine;
 
 public class SphereCubeRemover : MonoBehaviour {
-	private GameObject sphere;
+	/*private GameObject sphere;
 	private SphereCollider sphereCollider;
 	bool isVisible = false;
 
 	// Use this for initialization
 	void Start () {
-		sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+		/sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
         sphere.transform.localScale = new Vector3(0.2f, 0.2f, 0.2f);
         sphereCollider = sphere.AddComponent<SphereCollider>() as SphereCollider;
 		//sphereMC.convex = true;
@@ -27,5 +27,5 @@ public class SphereCubeRemover : MonoBehaviour {
 	public void setVisibility(bool isVisible) {
 		this.isVisible = isVisible;
 		sphere.SetActive(isVisible);
-	}
+	}*/
 }

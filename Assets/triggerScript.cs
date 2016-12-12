@@ -74,11 +74,8 @@ public class triggerScript : MonoBehaviour {
                 if (device.GetPressDown(SteamVR_Controller.ButtonMask.Trigger)) {
                     isHeld = true;
                     if (otherScript.isHeld) {
-                        if (isDominantController) {
-                            Debug.Log("setting last positions");
-                            buildMesh.dominantLastPosition = gameObject.transform.position;
-                            buildMesh.nonDominantLastPosition = otherController.transform.position;
-                        }
+                        buildMesh.dominantLastPosition = isDominantController ? gameObject.transform.position : otherController.transform.position;
+                        buildMesh.nonDominantLastPosition = isDominantController ? otherController.transform.position : gameObject.transform.position;
                     } else {
                         Debug.Log("starting scroll");
                     }
@@ -87,7 +84,7 @@ public class triggerScript : MonoBehaviour {
                         if (isDominantController) {
                             Debug.Log("calling dualControllerHandler");
                             otherPosition = otherController.transform.position;
-                            buildMesh.dualControllerHandler(gameObject.transform.position, otherPosition);
+                            buildMesh.dualControllerHandler(gameObject.transform.position, otherPosition, gameObject.transform.rotation);
                         }
                     } else {
                         Debug.Log("continuing scroll");
@@ -105,8 +102,8 @@ public class triggerScript : MonoBehaviour {
                         buildMesh.shouldSnap = false;
                         buildMesh.triggerDown(gameObject.transform.position);
                     } else if (device.GetPress(SteamVR_Controller.ButtonMask.Trigger)) {
-                        buildMesh.triggerHeld(gameObject.transform.position);
-                        //buildMesh.triggerHeldRotation(gameObject.transform.position);
+                        //buildMesh.triggerHeld(gameObject.transform.position);
+                        buildMesh.triggerHeldRotation(gameObject.transform.position);
                     } else if (device.GetPressUp(SteamVR_Controller.ButtonMask.Trigger)) {
                         buildMesh.triggerUp();
                     }

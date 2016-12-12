@@ -1040,7 +1040,7 @@ public class BuildMesh : MonoBehaviour {
         mainAxis = mainVal > 0 ? mainAxis : -mainAxis;
     }
 
-    public void dualControllerHandler(Vector3 dominantPosition, Vector3 nonDominantPosition) {
+    public void dualControllerHandler(Vector3 dominantPosition, Vector3 nonDominantPosition, Quaternion controllerRotation) {
         Debug.Log("entered dualcontrollerhandler");
         Vector3 offsetDominant = dominantPosition - dominantLastPosition;
         Vector3 offsetNonDominant = nonDominantPosition - nonDominantLastPosition;
@@ -1049,15 +1049,15 @@ public class BuildMesh : MonoBehaviour {
         getMainAxis(offsetNonDominant, out mainAxisNonDominant, out mainValNonDominant);
         if (mainAxisDominant == mainAxisNonDominant && Mathf.Abs(mainValDominant / mainValNonDominant - 1) < 0.3) {
             // if same axis and direction, and approximately same magnitude, we translate
-            //need to play around with the constant here
+            // need to play around with the constant here
             Vector3 thisTranslation = (offsetDominant + offsetNonDominant) * 3;
             gameObject.transform.position += thisTranslation;
-            Debug.Log("translated: " + thisTranslation);
+            //Debug.Log("translated: " + thisTranslation);
         } else {
             // otherwise, we rotate
             Quaternion interRotation = Quaternion.FromToRotation(dominantLastPosition - nonDominantLastPosition, dominantPosition - nonDominantPosition);
-            gameObject.transform.rotation *= interRotation;
-            Debug.Log("rotated: " + interRotation);
+            gameObject.transform.rotation = interRotation * gameObject.transform.rotation;
+            //Debug.Log("rotated: " + interRotation);
         }
         dominantLastPosition = dominantPosition;
         nonDominantLastPosition = nonDominantPosition;
@@ -1066,7 +1066,8 @@ public class BuildMesh : MonoBehaviour {
     public void triggerHeldRotation(Vector3 currentPosition) {
         if (isRotating) {
             //gameObject.transform.rotation = Quaternion.LookRotation(gameObject.transform.position - currentPosition);
-            gameObject.transform.rotation *= Quaternion.FromToRotation(dragStartPosition - gameObject.transform.position, currentPosition - gameObject.transform.position);
+            Quaternion rotation = Quaternion.FromToRotation(dragStartPosition - gameObject.transform.position, currentPosition - gameObject.transform.position);
+            gameObject.transform.rotation = rotation * rotation * rotation * gameObject.transform.rotation;
             dragStartPosition = currentPosition;
         }
     }
