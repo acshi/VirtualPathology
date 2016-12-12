@@ -426,7 +426,7 @@ public class BuildMesh : MonoBehaviour {
     }
 
     void makeDetailedViewMeshes() {
-        if (detailsObjects == null) {
+        if (detailsObjects == null || detailsMaterials == null) {
             detailsObjects = new GameObject[3];
             detailsMeshes = new Mesh[3];
             detailsRenderers = new MeshRenderer[3];
@@ -551,7 +551,10 @@ public class BuildMesh : MonoBehaviour {
         cachedTextures.Clear();
         cachedTexturePlanes.Clear();
 
-        string[] files = Directory.GetFiles(path, "*.png");
+        string[] files = Directory.GetFiles(path, "*.bmp");
+        if (files.Length == 0) {
+            files = Directory.GetFiles(path, "*.png");
+        }
         layers = new Texture2D[files.Length];
 
         for (int i = 0; i < files.Length; i++) {
@@ -626,7 +629,7 @@ public class BuildMesh : MonoBehaviour {
         
         // Set the textures. We should only ever do this once, because it is so slow!
         // This mesh shouldn't ever really change so we only do this if absolutely necessary.
-        if (forceReset || detailsMaterials[0][0].mainTexture == null) {
+        if (forceReset || detailsMaterials[0] == null || detailsMaterials[0][0].mainTexture == null) {
             for (int axis = 0; axis < 3; axis++) {
                 detailsMaterials[axis] = new Material[detailsMeshes[axis].subMeshCount];
                 
@@ -645,6 +648,7 @@ public class BuildMesh : MonoBehaviour {
                 detailsRenderers[axis].materials = detailsMaterials[axis];
             }
         }
+
 
         // Only update when the textures should change due to a different detail level
         if (renderers[0].materials.Length != meshes[0].subMeshCount) {
@@ -1104,7 +1108,7 @@ public class BuildMesh : MonoBehaviour {
         rot.x = (float)Math.Round(rot.x / 90f) * 90;
         rot.y = (float)Math.Round(rot.y / 90f) * 90;
         rot.z = (float)Math.Round(rot.z / 90f) * 90;
-        //snappingRotation = Quaternion.Euler(rot);
+        snappingRotation = Quaternion.Euler(rot);
     }
 
     public void setTransferFunctionEnabled(bool enabled) {
@@ -1160,9 +1164,10 @@ public class BuildMesh : MonoBehaviour {
         }
 
         for (int axis = 0; axis < 3; axis++) {
-            for (int matI = 0; matI < detailsMaterials.Length; matI++) {
+            float axisTransparency = transparencyScalar;// (float)Math.Pow(transparencyScalar, 60f / layerPixels[axis]);
+            for (int matI = 0; matI < detailsMaterials[axis].Length; matI++) {
                 detailsMaterials[axis][matI].SetInt("_UseTransferFunction", transferFunctionEnabled ? 1 : 0);
-                detailsMaterials[axis][matI].SetFloat("_TransparencyScalar", transparencyScalar);
+                detailsMaterials[axis][matI].SetFloat("_TransparencyScalar", axisTransparency);
                 detailsMaterials[axis][matI].SetFloat("_Contrast", contrast * 3);
             }
         }
