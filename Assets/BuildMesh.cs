@@ -1047,10 +1047,10 @@ public class BuildMesh : MonoBehaviour {
         float mainAxisDominant, mainAxisNonDominant, mainValDominant, mainValNonDominant;
         getMainAxis(offsetDominant, out mainAxisDominant, out mainValDominant);
         getMainAxis(offsetNonDominant, out mainAxisNonDominant, out mainValNonDominant);
-        if (mainAxisDominant == mainAxisNonDominant && Mathf.Abs(mainValDominant / mainValNonDominant - 1) < 0.3) {
+        if (mainAxisDominant == mainAxisNonDominant && Mathf.Abs(mainValDominant / mainValNonDominant) - 1 < 0.6) {
             // if same axis and direction, and approximately same magnitude, we translate
             // need to play around with the constant here
-            Vector3 thisTranslation = (offsetDominant + offsetNonDominant) * 3;
+            Vector3 thisTranslation = (offsetDominant + offsetNonDominant) * 2;
             gameObject.transform.position += thisTranslation;
             //Debug.Log("translated: " + thisTranslation);
         } else {
@@ -1067,7 +1067,7 @@ public class BuildMesh : MonoBehaviour {
         if (isRotating) {
             //gameObject.transform.rotation = Quaternion.LookRotation(gameObject.transform.position - currentPosition);
             Quaternion rotation = Quaternion.FromToRotation(dragStartPosition - gameObject.transform.position, currentPosition - gameObject.transform.position);
-            gameObject.transform.rotation = rotation * rotation * rotation * gameObject.transform.rotation;
+            gameObject.transform.rotation = rotation * rotation * rotation * rotation * rotation * rotation * gameObject.transform.rotation;
             dragStartPosition = currentPosition;
         }
     }
