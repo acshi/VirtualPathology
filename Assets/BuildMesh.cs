@@ -48,6 +48,7 @@ public class BuildMesh : MonoBehaviour {
     GameObject[] detailsObjects;
     Mesh[] detailsMeshes;
     MeshRenderer[] detailsRenderers;
+    Material[][] detailsMaterials;
     MeshCollider[] detailsColliders;
     Vector3[][] detailsVertices;
     Vector2[][] detailsUvs;
@@ -429,6 +430,7 @@ public class BuildMesh : MonoBehaviour {
             detailsObjects = new GameObject[3];
             detailsMeshes = new Mesh[3];
             detailsRenderers = new MeshRenderer[3];
+            detailsMaterials = new Material[3][];
             detailsColliders = new MeshCollider[3];
             detailsVertices = new Vector3[3][];
             detailsUvs = new Vector2[3][];
@@ -624,21 +626,23 @@ public class BuildMesh : MonoBehaviour {
         
         // Set the textures. We should only ever do this once, because it is so slow!
         // This mesh shouldn't ever really change so we only do this if absolutely necessary.
-        if (forceReset || detailsRenderers[0].materials[0].mainTexture == null) {
+        if (forceReset || detailsMaterials[0][0].mainTexture == null) {
             for (int axis = 0; axis < 3; axis++) {
-                detailsRenderers[axis].materials = new Material[detailsMeshes[axis].subMeshCount];
-                for (int i = 0; i < detailsRenderers[axis].materials.Length; i++) {
-                    detailsRenderers[axis].materials[i] = new Material(baseMaterial);
-                    detailsRenderers[axis].materials[i].shader = baseMaterial.shader;
-                    detailsRenderers[axis].materials[i].hideFlags = HideFlags.HideAndDontSave | HideFlags.HideInInspector;
-                }
+                detailsMaterials[axis] = new Material[detailsMeshes[axis].subMeshCount];
                 
+                for (int i = 0; i < detailsMaterials[axis].Length; i++) {
+                    detailsMaterials[axis][i] = new Material(baseMaterial);
+                    detailsMaterials[axis][i].shader = baseMaterial.shader;
+                    detailsMaterials[axis][i].hideFlags = HideFlags.HideAndDontSave | HideFlags.HideInInspector;
+                }
+
                 Vector3 planeDirection = new Vector3(axis == 0 ? 1 : 0, axis == 1 ? 1 : 0, axis == 2 ? 1 : 0);
 
                 int count = layerPixels[axis];
                 for (int submeshI = 0; submeshI < count; submeshI++) {
-                    detailsRenderers[axis].materials[submeshI].mainTexture = textureForPlane(new Plane(planeDirection, (float)submeshI / (count - 1)));
+                    detailsMaterials[axis][submeshI].mainTexture = textureForPlane(new Plane(planeDirection, (float)submeshI / (count - 1)));
                 }
+                detailsRenderers[axis].materials = detailsMaterials[axis];
             }
         }
 
@@ -703,10 +707,10 @@ public class BuildMesh : MonoBehaviour {
                     int count = layerPixels[axis];
                     for (int submeshI = 0; submeshI < count; submeshI++) {
                         int drawIndex = (int)(2000 * -cameraDirXyz[axis] * submeshI / count * (axis == 0 ? -1 : 1)) + 2000;
-                        if (detailsRenderers[axis].materials.Length <= submeshI) {
+                        if (detailsMaterials[axis].Length <= submeshI) {
                             drawIndex++;
                         }
-                        detailsRenderers[axis].materials[submeshI].renderQueue = 3000 + drawIndex;
+                        detailsMaterials[axis][submeshI].renderQueue = 3000 + drawIndex;
                     }
                 }
             }
@@ -1156,11 +1160,10 @@ public class BuildMesh : MonoBehaviour {
         }
 
         for (int axis = 0; axis < 3; axis++) {
-            Material[] detailsMaterials = detailsRenderers[axis].materials;
             for (int matI = 0; matI < detailsMaterials.Length; matI++) {
-                detailsMaterials[matI].SetInt("_UseTransferFunction", transferFunctionEnabled ? 1 : 0);
-                detailsMaterials[matI].SetFloat("_TransparencyScalar", transparencyScalar);
-                detailsMaterials[matI].SetFloat("_Contrast", contrast * 3);
+                detailsMaterials[axis][matI].SetInt("_UseTransferFunction", transferFunctionEnabled ? 1 : 0);
+                detailsMaterials[axis][matI].SetFloat("_TransparencyScalar", transparencyScalar);
+                detailsMaterials[axis][matI].SetFloat("_Contrast", contrast * 3);
             }
         }
     }
