@@ -101,7 +101,9 @@ public class BuildMesh : MonoBehaviour {
 
     void makeMeshCubes() {
         // Number of cubes to make in each dimension: x, y, z
-        cubeCounts = new int[] { layerHeight / subcubeSize, (int)Math.Ceiling(yAspectRatio * layerNumber / subcubeSize), layerWidth / subcubeSize };
+        cubeCounts = new int[] { (int)Math.Ceiling((float)layerHeight / subcubeSize),
+                                 (int)Math.Ceiling(yAspectRatio * layerNumber / subcubeSize),
+                                 (int)Math.Ceiling((float)layerWidth / subcubeSize) };
         int totalCubeCount = cubeCounts[0] * cubeCounts[1] * cubeCounts[2];
 
         // Each mesh is limited to 65536 vertices. How many meshes are needed to cover all vertices?
@@ -551,7 +553,7 @@ public class BuildMesh : MonoBehaviour {
         cachedTextures.Clear();
         cachedTexturePlanes.Clear();
 
-        string[] files = Directory.GetFiles(path, "*.bmp");
+        string[] files = Directory.GetFiles(path, "*.jpg");
         if (files.Length == 0) {
             files = Directory.GetFiles(path, "*.png");
         }
@@ -1164,7 +1166,7 @@ public class BuildMesh : MonoBehaviour {
         }
 
         for (int axis = 0; axis < 3; axis++) {
-            float axisTransparency = transparencyScalar;// (float)Math.Pow(transparencyScalar, 60f / layerPixels[axis]);
+            float axisTransparency = transparencyScalar * (axis != 1 ? yAspectRatio : 1);
             for (int matI = 0; matI < detailsMaterials[axis].Length; matI++) {
                 detailsMaterials[axis][matI].SetInt("_UseTransferFunction", transferFunctionEnabled ? 1 : 0);
                 detailsMaterials[axis][matI].SetFloat("_TransparencyScalar", axisTransparency);
