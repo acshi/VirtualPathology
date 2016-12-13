@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using System.IO.IsolatedStorage;
 
 public class BuildMesh : MonoBehaviour {
     string datasetDirectory = "human_kidney_png";
@@ -95,8 +96,7 @@ public class BuildMesh : MonoBehaviour {
 
     public Vector3 lockPosition = Vector3.zero;
     public GameObject mainCamera;
-
-    public Canvas settingsCanvas;
+    
     public bool dualControllerModeEnabled = false;
 
     void makeMeshCubes() {
@@ -531,7 +531,8 @@ public class BuildMesh : MonoBehaviour {
             string aspectRatioPath = Path.Combine(Application.streamingAssetsPath, datasetDirectory);
             aspectRatioPath = Path.Combine(aspectRatioPath, "aspect_ratio");
             float.TryParse(File.ReadAllLines(aspectRatioPath)[0], out yAspectRatio);
-        } catch (IOException) {}
+        } catch (IOException) {
+        } catch (IsolatedStorageException) { }
 
         Recreate(true);
     }
