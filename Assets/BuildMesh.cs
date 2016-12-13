@@ -89,14 +89,13 @@ public class BuildMesh : MonoBehaviour {
     public Slider contrastSlider;
 
     // Shader properties
-    bool transferFunctionEnabled = true;
-    float transparencyScalar = 0.8f;
+    bool transferFunctionEnabled = false;
+    float transparencyScalar = 0.0f;
     float contrast = 1.0f;
 
     public Vector3 lockPosition = Vector3.zero;
     public GameObject mainCamera;
 
-    public Canvas settingsCanvas;
     public bool dualControllerModeEnabled = false;
 
     void makeMeshCubes() {
@@ -1118,8 +1117,8 @@ public class BuildMesh : MonoBehaviour {
         updateShaderProperties();
     }
 
-    public void toggleDualMode(bool enabled) {
-        dualControllerModeEnabled = !dualControllerModeEnabled;
+    public void setDualMode(bool enabled) {
+        dualControllerModeEnabled = enabled;
     }
 
     public void setTransparencyScalar(float transparency) {
