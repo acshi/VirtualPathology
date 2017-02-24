@@ -21,7 +21,7 @@ public class DatasetChooser : MonoBehaviour {
     public Button nextBtn;
 
     public bool ShowChooser = true;
-    public string BaseDatasetDirectory = "C:/VR_Datasets";
+	public string BaseDatasetDirectory = "C:\\Users\\Applikate 1\\Downloads\\human_kidney_png";
 
     // Increases when the next button is pressed, etc...
     int datasetIndex = 0;
@@ -50,6 +50,7 @@ public class DatasetChooser : MonoBehaviour {
     public void datasetClick(int index) {
         string dataset = datasetDirs[index + datasetIndex];
         buildMesh.LoadDataset(dataset);
+		Debug.Log ("clicked load");
     }
 
     // Update is called once per frame

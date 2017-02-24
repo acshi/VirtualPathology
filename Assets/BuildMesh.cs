@@ -90,16 +90,18 @@ public class BuildMesh : MonoBehaviour {
     public Slider contrastSlider;
 
     // Shader properties
-    bool transferFunctionEnabled = false;
+    bool transferFunctionEnabled = true;
     float transparencyScalar = 0.0f;
     float contrast = 1.0f;
 
     public Vector3 lockPosition = Vector3.zero;
     public GameObject mainCamera;
 
-    public bool dualControllerModeEnabled = false;
+    public bool dualControllerModeEnabled = true;
+	public bool loadOnStart = false;
     
     void makeMeshCubes() {
+		Debug.Log ("calling make mesh cubes");
         // Number of cubes to make in each dimension: x, y, z
         cubeCounts = new int[] { (int)Math.Ceiling((float)layerHeight / subcubeSize),
                                  (int)Math.Ceiling(yAspectRatio * layerNumber / subcubeSize),
@@ -330,7 +332,7 @@ public class BuildMesh : MonoBehaviour {
                                    meshSize[2] * (0.5f - 0.5f / layerPixels[2] - (float)rmPixelsXyz[2, 1] / layerPixels[2]) };
             switch (axis) {
                 case 0:
-                    for (int i = 0; i < layerPixels[0]; i++) {
+                    for (int i = 0; i < layerPixels[0]; i+=4) {
                         int vertI = planeI * 4;
 
                         if (i < rmPixelsXyz[0, 1] || i > layerPixels[0] - 1 - rmPixelsXyz[0, 0]) {
@@ -359,7 +361,7 @@ public class BuildMesh : MonoBehaviour {
                     }
                     break;
                 case 1:
-                    for (int i = 0; i < layerPixels[1]; i++) {
+                    for (int i = 0; i < layerPixels[1]; i+= 4) {
                         int vertI = planeI * 4;
 
                         if (i < rmPixelsXyz[1, 0] || i > layerPixels[1] - 1 - rmPixelsXyz[1, 1]) {
@@ -388,7 +390,7 @@ public class BuildMesh : MonoBehaviour {
                     }
                     break;
                 case 2:
-                    for (int i = 0; i < layerPixels[2]; i++) {
+                    for (int i = 0; i < layerPixels[2]; i+=4) {
                         int vertI = planeI * 4;
 
                         if (i < rmPixelsXyz[2, 0] || i > layerPixels[2] - 1 - rmPixelsXyz[2, 1]) {
@@ -418,6 +420,14 @@ public class BuildMesh : MonoBehaviour {
                     break;
             }
 
+			for (int i = 0; i < vertices.Length; i++) {
+				vertices [i] += new Vector3 (UnityEngine.Random.Range (0, 100) * .00001f, UnityEngine.Random.Range (0, 100) * .00001f, UnityEngine.Random.Range (0, 100) * .00001f);
+			}
+
+			for (int i = 0; i < uvs.Length; i++) {
+				uvs [i] += new Vector2 (UnityEngine.Random.Range (0, 100) * .00001f, UnityEngine.Random.Range (0, 100) * .00001f);
+			}
+
             if (updateToMesh) {
                 detailsMeshes[axis].vertices = vertices;
                 detailsMeshes[axis].uv = uvs;
@@ -428,6 +438,7 @@ public class BuildMesh : MonoBehaviour {
     }
 
     void makeDetailedViewMeshes() {
+		Debug.Log ("calling make detail");
         if (detailsObjects == null || detailsMaterials == null) {
             detailsObjects = new GameObject[3];
             detailsMeshes = new Mesh[3];
@@ -440,7 +451,7 @@ public class BuildMesh : MonoBehaviour {
 
         updateDetailsMeshVertices(false);
 
-        for (int axis = 0; axis < 3; axis++) {
+        for (int axis = 0; axis < 3; axis++) { //chaning to 1
             Mesh mesh;
             MeshCollider collider;
 
@@ -538,8 +549,10 @@ public class BuildMesh : MonoBehaviour {
     }
 
     void loadLayerFiles() {
+		Debug.Log ("loading from: " + datasetDirectory);
         // The files in the designated folder have the source y-layers
         // Absolute dataset paths will ignore the streaming assets path
+
         string path = Path.Combine(Application.streamingAssetsPath, datasetDirectory);
 
         if (!Directory.Exists(path)) {
@@ -748,6 +761,9 @@ public class BuildMesh : MonoBehaviour {
     void Start() {
         baseRenderer = GetComponent<MeshRenderer>();
         gameObject.transform.position = lockPosition;
+		if (loadOnStart) {
+			LoadDataset ("C:/VR_datasets/human_kidney_png_thin");
+		};
     }
 
     float constrain(float val, float min, float max) {
@@ -1115,6 +1131,7 @@ public class BuildMesh : MonoBehaviour {
     }
 
     public void setTransferFunctionEnabled(bool enabled) {
+		Debug.Log ("setting transfer function");
         transferFunctionEnabled = enabled;
         updateShaderProperties();
     }
@@ -1349,7 +1366,7 @@ public class BuildMesh : MonoBehaviour {
                     slicelineRenderer.endWidth = 0.01f;
                     slicelineRenderer.startColor = Color.red;
                     slicelineRenderer.endColor = Color.red;
-                    slicelineRenderer.numPositions = 2;
+                    slicelineRenderer.positionCount = 2;
                     break;
                 case sliceMode.VERT:
                     currentSliceMode = sliceMode.HORIZ;
