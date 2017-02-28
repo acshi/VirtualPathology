@@ -50,8 +50,10 @@ public class triggerScript : MonoBehaviour {
 	}
 
 	void slice() {
-		if (OVRInput.GetDown(OVRInput.Button.PrimaryHandTrigger, selfTouch)) {
+        Debug.Log("calling slice");
+		if (OVRInput.Get(OVRInput.Button.PrimaryHandTrigger, selfTouch)) {
 			sumScrollDelta += (gameObject.transform.position.z - oldPosition.z) * slideSensitivity;
+            Debug.Log("we in here");
 			if (Mathf.Abs(sumScrollDelta) >= 1) {
 				int ticks = (int)sumScrollDelta;
 				sumScrollDelta -= ticks;

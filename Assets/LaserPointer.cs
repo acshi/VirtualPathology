@@ -81,7 +81,7 @@ public class LaserPointer : MonoBehaviour {
 
             if (device.GetTouch(SteamVR_Controller.ButtonMask.Trigger)) {
                 Debug.Log("got press 2");
-                bm.removeCubeFromRay(hit);
+                //bm.removeCubeFromRay(hit);
             }
 
             if (device.GetTouch(SteamVR_Controller.ButtonMask.Trigger))
