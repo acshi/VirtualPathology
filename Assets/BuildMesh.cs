@@ -110,7 +110,7 @@ public class BuildMesh : MonoBehaviour {
                                    meshSize[2] * (0.5f - 0.5f / layerPixels[2] - (float)rmPixelsXyz[2, 1] / layerPixels[2]) };
             switch (axis) {
                 case 0:
-                    for (int i = 0; i < layerPixels[0]; i+=4) {
+                    for (int i = 0; i < layerPixels[0]; i++) {
                         int vertI = planeI * 4;
 
                         if (i < rmPixelsXyz[0, 1] || i > layerPixels[0] - 1 - rmPixelsXyz[0, 0]) {
@@ -139,7 +139,7 @@ public class BuildMesh : MonoBehaviour {
                     }
                     break;
                 case 1:
-                    for (int i = 0; i < layerPixels[1]; i+= 4) {
+                    for (int i = 0; i < layerPixels[1]; i++) {
                         int vertI = planeI * 4;
 
                         if (i < rmPixelsXyz[1, 0] || i > layerPixels[1] - 1 - rmPixelsXyz[1, 1]) {
@@ -168,7 +168,7 @@ public class BuildMesh : MonoBehaviour {
                     }
                     break;
                 case 2:
-                    for (int i = 0; i < layerPixels[2]; i+=4) {
+                    for (int i = 0; i < layerPixels[2]; i++) {
                         int vertI = planeI * 4;
 
                         if (i < rmPixelsXyz[2, 0] || i > layerPixels[2] - 1 - rmPixelsXyz[2, 1]) {
