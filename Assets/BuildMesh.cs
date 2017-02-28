@@ -71,10 +71,10 @@ public class BuildMesh : MonoBehaviour {
     public Text contrastText;
     public Slider contrastSlider;
 
-    // Shader properties
-    bool transferFunctionEnabled = true;
-    float transparencyScalar = 0.0f;
-    float contrast = 1.0f;
+    // Shader properties -- defaults should be set in resetAll
+    bool transferFunctionEnabled;
+    float transparencyScalar;
+    float contrast;
 
     public Vector3 lockPosition = Vector3.zero;
     public GameObject mainCamera;
@@ -479,6 +479,7 @@ public class BuildMesh : MonoBehaviour {
 		if (loadOnStart) {
 			LoadDataset ("D:/VRData/human_kidney_png");
 		}
+        resetAll();
     }
 
     float constrain(float val, float min, float max) {
@@ -638,9 +639,12 @@ public class BuildMesh : MonoBehaviour {
         gameObject.transform.position = Vector3.zero;
         snappingRotation = new Quaternion();
 
-        transferFunctionToggle.isOn = true;
-        transparencyScalarSlider.value = 0.5f;
-        contrastSlider.value = 1.0f;
+        transferFunctionEnabled = true;
+        transferFunctionToggle.isOn = transferFunctionEnabled;
+        transparencyScalar = 0.5f;
+        transparencyScalarSlider.value = transparencyScalar;
+        contrast = 1.0f;
+        contrastSlider.value = contrast;
 
         rmPixelsXyz = new int[3, 2];
         Recreate();
@@ -726,7 +730,7 @@ public class BuildMesh : MonoBehaviour {
         getMainAxisAndSign(out axis, out sign);
 
         // Keep the end number of pixels non-zero so the mesh never completely disappears
-        int newRmPixels = (int)constrain(rmPixelsXyz[axis, sign] + pixels, 0, layerPixels[axis] - 1 - rmPixelsXyz[axis, (sign + 1) % 2]);
+        int newRmPixels = (int)constrain(rmPixelsXyz[axis, sign] + pixels, 0, layerPixels[axis] - 2 - rmPixelsXyz[axis, (sign + 1) % 2]);
         if (newRmPixels == rmPixelsXyz[axis, sign]) {
             return;
         }
