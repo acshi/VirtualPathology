@@ -50,7 +50,6 @@ public class DatasetChooser : MonoBehaviour {
     public void datasetClick(int index) {
         string dataset = datasetDirs[index + datasetIndex];
         buildMesh.LoadDataset(dataset);
-		Debug.Log ("clicked load");
     }
 
     // Update is called once per frame

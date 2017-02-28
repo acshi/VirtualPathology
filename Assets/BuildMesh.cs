@@ -59,7 +59,6 @@ public class BuildMesh : MonoBehaviour {
     public bool shouldReset = false;
     Quaternion snappingRotation = new Quaternion();
 
-    int[,] rmLayersXyz = new int[3, 2]; // [xyz index, minMax index]
     int[,] rmPixelsXyz = new int[3, 2]; // same as above, but with higher resolution for the details view
     //Vector3 positiveAxisZoom; // increase to view inner layers on the + side
     //Vector3 negativeAxisZoom; // for - side.
@@ -209,7 +208,7 @@ public class BuildMesh : MonoBehaviour {
     }
 
     void makeDetailedViewMeshes() {
-		Debug.Log ("calling make detail");
+		//Debug.Log ("calling make detail");
         if (detailsObjects == null || detailsMaterials == null) {
             detailsObjects = new GameObject[3];
             detailsMeshes = new Mesh[3];
@@ -479,7 +478,7 @@ public class BuildMesh : MonoBehaviour {
         gameObject.transform.position = lockPosition;
 		if (loadOnStart) {
 			LoadDataset ("D:/VRData/human_kidney_png");
-		};
+		}
     }
 
     float constrain(float val, float min, float max) {
@@ -496,12 +495,7 @@ public class BuildMesh : MonoBehaviour {
         makeDetailedViewMeshes();
 
         setupTextures(forceResetTextures);
-
-        // reset back to nothing removed, because the whole mesh has changed
-        rmLayersXyz = new int[3, 2];
-
         updateRenderOrder(true);
-
         updateShaderProperties();
     }
 
@@ -555,7 +549,7 @@ public class BuildMesh : MonoBehaviour {
     }
 
     public void dualControllerHandler(Vector3 dominantPosition, Vector3 nonDominantPosition, Quaternion controllerRotation) {
-        Debug.Log("entered dualcontrollerhandler");
+        //Debug.Log("entered dualcontrollerhandler");
         Vector3 offsetDominant = dominantPosition - dominantLastPosition;
         Vector3 offsetNonDominant = nonDominantPosition - nonDominantLastPosition;
         float mainAxisDominant, mainAxisNonDominant, mainValDominant, mainValNonDominant;
@@ -588,7 +582,7 @@ public class BuildMesh : MonoBehaviour {
 
     public void triggerDown(Vector3 initialPosition) {
         // If the allTriangles array has been mangled by a code reload, recreate all the missing arrays
-        if (detailsObjects == null || detailsObjects.Length == 0) {
+        if (detailsObjects == null || detailsObjects.Length == 0 || detailsMaterials == null) {
             Recreate();
         }
 
@@ -618,7 +612,7 @@ public class BuildMesh : MonoBehaviour {
     }
 
     public void setTransferFunctionEnabled(bool enabled) {
-		Debug.Log ("setting transfer function");
+		//Debug.Log ("setting transfer function");
         transferFunctionEnabled = enabled;
         updateShaderProperties();
     }
@@ -649,7 +643,6 @@ public class BuildMesh : MonoBehaviour {
         contrastSlider.value = 1.0f;
 
         rmPixelsXyz = new int[3, 2];
-        rmLayersXyz = new int[3, 2];
         Recreate();
 
         updateRenderOrder();
@@ -726,7 +719,7 @@ public class BuildMesh : MonoBehaviour {
     }
 
     public void orthogonalScroll(int pixels) {
-        Debug.Log("scrolling");
+        //Debug.Log("scrolling");
         // vector from camera to object
         int axis;
         int sign;
@@ -749,7 +742,7 @@ public class BuildMesh : MonoBehaviour {
         }
 
         updateDetailsMeshVertices();
-        updateRenderOrder(true);
+        updateRenderOrder();
 
         if (Input.GetKeyDown("left shift")) {
             switch (currentSliceMode) {
@@ -827,20 +820,6 @@ public class BuildMesh : MonoBehaviour {
         updateRenderOrder();
     }
 
-    void OnCollisionEnter(Collision col)
-    {
-        Debug.Log("entered OnCollisionEnter");
-        // We just take the first collision point and ignore others
-        ContactPoint P = col.contacts[0];
-        RaycastHit hit;
-        Ray ray = new Ray(P.point + P.normal * 0.05f, -P.normal);
-        if (gameObject.GetComponent<MeshCollider>().Raycast(ray, out hit, 0.1f))
-        {
-            int triangle = hit.triangleIndex;
-            Debug.Log("Got triangle: " + triangle);
-            // do something...
-        }
-        else
-            Debug.LogError("Have a collision but can't raycast the point");
+    void OnCollisionEnter(Collision col) {
     }
 }
