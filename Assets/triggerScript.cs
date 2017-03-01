@@ -102,7 +102,7 @@ canvas.enabled = true;
 
 void slice() {
 
-if (OVRInput.Get(OVRInput.Button.PrimaryHandTrigger, selfTouch)) {
+        if (OVRInput.Get(OVRInput.Button.PrimaryIndexTrigger, selfTouch)) {
 
 sumScrollDelta += (gameObject.transform.position.z - oldPosition.z) * slideSensitivity;
 
@@ -139,6 +139,10 @@ if (true) {
 
 
 if (true) {
+
+                if (!otherScript.isHeld) {
+                    slice();
+                }
 
 //radialMenu.SetActive(false);
 
@@ -178,7 +182,7 @@ buildMesh.dualControllerHandler(gameObject.transform.position, otherPosition, ga
 
 Debug.Log("continuing scroll");
 
-slice();
+//slice();
 
 }
 

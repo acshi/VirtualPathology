@@ -82,6 +82,9 @@ public class BuildMesh : MonoBehaviour {
     public bool dualControllerModeEnabled = true;
 	public bool loadOnStart = false;
 
+    public Vector3 renderStartPosition;
+
+
     void updateDetailsMeshVertices(bool updateToMesh = true) {
         if (detailsVertices == null) {
             detailsVertices = new Vector3[3][];
@@ -316,6 +319,7 @@ public class BuildMesh : MonoBehaviour {
         } catch (IsolatedStorageException) { }
 
         Recreate(true);
+
     }
 
     void loadLayerFiles() {
@@ -636,7 +640,7 @@ public class BuildMesh : MonoBehaviour {
 
     public void resetAll() {
         gameObject.transform.rotation = new Quaternion();
-        gameObject.transform.position = Vector3.zero;
+        gameObject.transform.position = lockPosition;
         snappingRotation = new Quaternion();
 
         transferFunctionEnabled = true;
