@@ -102,7 +102,7 @@ canvas.enabled = true;
 
 void slice() {
 
-if (OVRInput.GetDown(OVRInput.Button.PrimaryHandTrigger, selfTouch)) {
+if (OVRInput.Get(OVRInput.Button.PrimaryHandTrigger, selfTouch)) {
 
 sumScrollDelta += (gameObject.transform.position.z - oldPosition.z) * slideSensitivity;
 
@@ -138,13 +138,13 @@ if (true) {
 
 
 
-if (buildMesh.dualControllerModeEnabled) {
+if (true) {
 
 //radialMenu.SetActive(false);
 
 //Debug.Log("entered dualControllerModeEnabled!");
 
-if (OVRInput.Get(OVRInput.Button.PrimaryHandTrigger, selfTouch)) {
+if (OVRInput.GetDown(OVRInput.Button.PrimaryHandTrigger, selfTouch)) {
 
 isHeld = true;
 
