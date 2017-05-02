@@ -329,10 +329,12 @@ public class BuildMesh : MonoBehaviour {
 
         string path = Path.Combine(Application.streamingAssetsPath, datasetDirectory);
 
-        if (!Directory.Exists(path)) {
-            Debug.Log("Directory does not exist");
-            return;
-        }
+		if (!Directory.Exists (path)) {
+			Debug.Log ("Directory does not exist");
+			return;
+		} else {
+			Debug.Log ("Directory exists.");
+		}
 
         // Try to release old textures from memory, if any
         foreach (Texture tex in cachedTextures) {
@@ -345,6 +347,8 @@ public class BuildMesh : MonoBehaviour {
         if (files.Length == 0) {
             files = Directory.GetFiles(path, "*.png");
         }
+		Debug.Log (files.Length);
+		Debug.Log(Directory.GetFiles(path).Length);
         layers = new Texture2D[files.Length];
 
         for (int i = 0; i < files.Length; i++) {
@@ -481,7 +485,7 @@ public class BuildMesh : MonoBehaviour {
         baseRenderer = GetComponent<MeshRenderer>();
         gameObject.transform.position = lockPosition;
 		if (loadOnStart) {
-			LoadDataset ("D:/VRData/human_kidney_png");
+			LoadDataset ("C:/Users/Applikate 1/Downloads/human_kidney_png/human_kidney_png");
 		}
         resetAll();
     }
